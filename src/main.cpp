@@ -1,7 +1,9 @@
+#include "parser/parser.h"
 #include <iostream>
-#include "lexer/lexer.hpp"
 
 int main() {
-    std::cout << "Compilador HULK iniciado!" << std::endl;
+    std::cout << "Calculadora HULK\n";
+    std::cout << "Ingrese expresiones (ej: 2+3*4)\n";
+    yyparse();
     return 0;
 }

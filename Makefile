@@ -1,26 +1,31 @@
-# Configuración para Windows/Linux
-ifeq ($(OS),Windows_NT)
-    MKDIR = mkdir
-    RMDIR = rmdir /Q /S
-    SCRIPT = script.hulk
-    EXE = hulk-compiler.exe
-else
-    MKDIR = mkdir -p
-    RMDIR = rm -rf
-    SCRIPT = script.hulk
-    EXE = hulk-compiler
-endif
+CC = gcc
+CFLAGS = -Iinclude -Isrc/parser -Ibuild -lm
+BIN = build/hulk-compiler
 
-.PHONY: build run clean
+all: $(BIN)
 
-build:
-	@$(MKDIR) build
-	@if ! [ -f "$(SCRIPT)" ]; then echo "[ERROR] Archivo $(SCRIPT) no encontrado" && exit 1; fi
-	@echo "[OK] Build completado. Carpeta 'build' creada."
+$(BIN): build/parser.tab.o build/lex.yy.o src/main.o
+	$(CC) $^ -o $@ $(CFLAGS)
 
-run: build
-	@echo "[INFO] Ejecución pendiente (implementar luego)."
+build/parser.tab.c build/parser.tab.h: src/parser/parser.y
+	bison -d -o build/parser.tab.c $<
+
+build/lex.yy.c: src/lexer/lexer.l build/parser.tab.h
+	flex -o $@ $<
+
+build/lex.yy.o: build/lex.yy.c
+	$(CC) -c $< -o $@ $(CFLAGS)
+
+build/parser.tab.o: build/parser.tab.c
+	$(CC) -c $< -o $@ $(CFLAGS)
+
+src/main.o: src/main.c
+	$(CC) -c $< -o $@ $(CFLAGS)
 
 clean:
-	@$(RMDIR) build
-	@echo "[OK] Carpeta 'build' eliminada."
+	rm -f build/* src/main.o
+
+test: $(BIN)
+	$(BIN) tests/test_programs/arithmetic.hulk
+
+.PHONY: all clean test
