@@ -1,31 +1,64 @@
-CC = gcc
-CFLAGS = -Iinclude -Isrc/parser -Ibuild -lm
+# Variables
+CXX = g++ # Compilador de C++ para el ejecutable final
+CC = gcc  # Compilador de C para los archivos de Flex y Bison
+CXXFLAGS = -Iinclude -Isrc/parser -Ibuild -lm # Bandera para C++
+CFLAGS = -Iinclude -Isrc/parser -Ibuild -lm   # Bandera para C
 BIN = build/hulk-compiler
+SCRIPT = script.hulk
 
-all: $(BIN)
+# Detectar sistema operativo
+ifeq ($(OS),Windows_NT)
+    MKDIR = mkdir
+    CHECK_FILE = if not exist
+    RM = rmdir /S /Q
+else
+    MKDIR = mkdir -p
+    CHECK_FILE = test -f
+    RM = rm -rf
+endif
 
-$(BIN): build/parser.tab.o build/lex.yy.o src/main.o
-	$(CC) $^ -o $@ $(CFLAGS)
+# Regla principal
+all: build
 
-build/parser.tab.c build/parser.tab.h: src/parser/parser.y
+# Regla build
+build: $(BIN)
+	@if [ -f "$(SCRIPT)" ]; then echo "[OK] Archivo 'script.hulk' encontrado."; else echo "[ERROR] Archivo 'script.hulk' no encontrado." && exit 1; fi
+	@echo "[OK] Build completado."
+
+# Generar el ejecutable
+$(BIN): build/parser.tab.o build/lex.yy.o src/main.o | build-dir
+	$(CXX) build/parser.tab.o build/lex.yy.o src/main.o -o $@ $(CXXFLAGS)
+
+# Crear el directorio build si no existe
+build-dir:
+	@$(MKDIR) build
+
+# Generar archivos de Bison
+build/parser.tab.c build/parser.tab.h: src/parser/parser.y | build-dir
 	bison -d -o build/parser.tab.c $<
 
-build/lex.yy.c: src/lexer/lexer.l build/parser.tab.h
+# Generar archivo de Flex
+build/lex.yy.c: src/lexer/lexer.l build/parser.tab.h | build-dir
 	flex -o $@ $<
 
-build/lex.yy.o: build/lex.yy.c
+# Compilar archivos objeto
+build/lex.yy.o: build/lex.yy.c | build-dir
 	$(CC) -c $< -o $@ $(CFLAGS)
 
-build/parser.tab.o: build/parser.tab.c
+build/parser.tab.o: build/parser.tab.c | build-dir
 	$(CC) -c $< -o $@ $(CFLAGS)
 
-src/main.o: src/main.c
-	$(CC) -c $< -o $@ $(CFLAGS)
+src/main.o: src/main.cpp | build-dir
+	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
+# Regla run
+run: build
+	@echo "[INFO] Ejecutando el compilador..."
+	@$(BIN) $(SCRIPT)
+
+# Regla clean
 clean:
-	rm -f build/* src/main.o
+	@rm -rf build
+	@echo "[OK] Operación clean completada."
 
-test: $(BIN)
-	$(BIN) tests/test_programs/arithmetic.hulk
-
-.PHONY: all clean test
+.PHONY: all build run clean

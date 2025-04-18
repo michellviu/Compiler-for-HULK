@@ -5,7 +5,7 @@
 
 extern FILE *yyin;
 void yyerror(const char *s);
-int yyparse(void);
-int yylex(void);
+extern "C" int yyparse();
+extern "C" int yylex();
 
 #endif
