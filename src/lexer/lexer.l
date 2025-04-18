@@ -1,16 +1,15 @@
 %{
 #include <stdio.h>
 #include "parser.tab.h"
-#include "compiler.h"
 
-extern FILE *yyin;
+extern int yylineno;
 void yyerror(const char *s);
 %}
 
 %option noyywrap
 
 DIGIT   [0-9]
-ID      [a-zA-Z_][a-zA-Z0-9_]*
+ID      [a-zA-Z][a-zA-Z0-9]*
 
 %%
 
@@ -18,11 +17,14 @@ ID      [a-zA-Z_][a-zA-Z0-9_]*
 "else"      return ELSE;
 "while"     return WHILE;
 "print"     return PRINT;
+"let"       return LET;
+"in"        return IN;
 
 "+"         return PLUS;
 "-"         return MINUS;
 "*"         return TIMES;
 "/"         return DIVIDE;
+"^"         return POWER;
 "="         return ASSIGN;
 ";"         return SEMICOLON;
 
@@ -33,7 +35,9 @@ ID      [a-zA-Z_][a-zA-Z0-9_]*
 
 {DIGIT}+    { yylval.ival = atoi(yytext); return NUMBER; }
 
-[ \t\n]+    { /* ignorar espacios */ }
+\n  { yylineno++; }
+[ \t\r]+    { /* ignorar espacios */ }
+
 .           { yyerror("Caracter desconocido"); }
 
 %%

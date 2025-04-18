@@ -1,3 +1,4 @@
+#include <math.h>
 #pragma once
 
 class ASTNode {
@@ -34,6 +35,7 @@ public:
             case '-': return l - r;
             case '*': return l * r;
             case '/': return l / r;
+            case '^': return pow(l, r);
             default: return 0;
         }
     }
