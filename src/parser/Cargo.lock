@@ -144,13 +144,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulk_compiler"
-version = "0.1.0"
-dependencies = [
- "parser",
-]
-
-[[package]]
 name = "indexmap"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
