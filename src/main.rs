@@ -1,16 +1,14 @@
-use  parser::grammar::ProgramParser;
+use parser::grammar::ProgramParser;
+use parser::visitor::AstPrinterVisitor::AstPrinterVisitor;
+use parser::visitor::Visitable;
 
 fn main() {
     let expr = ProgramParser::new()
-        .parse("let x = let y=4 in (y+4) in (x + 3)")
+        .parse("let x = let z=4 in (z*4),y=6 in let j=20 in (j+x+y)")
         .unwrap();
-    println!("{:?}", expr);
+    let mut printer = AstPrinterVisitor::new();
+    expr.accept(&mut printer);
 }
-
-
-
-
-
 
 
 // mod ast;

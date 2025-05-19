@@ -2,6 +2,8 @@ use crate::tokens::*;
 use crate::BinOp;
 use crate::Expression;
 use crate::Atom;
+use super::super::Visitable;
+use super::super::Visitor;
 
 #[derive(Debug)]
 pub struct Assignment {
@@ -18,6 +20,13 @@ impl Assignment {
             body: Box::new(body),
         }
     }
+}
+
+impl Visitable for Assignment {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_assignment(self);
+    }
+    
 }
 #[derive(Debug)]
 pub struct LetIn {
@@ -37,4 +46,11 @@ impl LetIn {
             body: Box::new(body),
         }
     }
+}
+
+impl Visitable for LetIn {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_letin(self);
+    }
+    
 }

@@ -1,5 +1,7 @@
 use std::fmt;
 use super::position::Position;
+use super::super::Visitable;
+use super::super::Visitor;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -16,4 +18,11 @@ impl fmt::Display for Literal {
             Literal::Bool(b, _) => write!(f, "{}", b),
         }
     }
+}
+
+impl Visitable for Literal {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_literal(&self);
+    }
+    
 }

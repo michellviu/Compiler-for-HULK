@@ -1,5 +1,7 @@
 use super::super::Expression;
 use crate::tokens::GroupingOperator;
+use super::super::Visitable;
+use super::super::Visitor;
 
 #[derive(Debug)]
 pub struct ExpressionList {
@@ -12,6 +14,13 @@ impl ExpressionList {
             expressions,
         }
     }
+}
+
+impl Visitable for ExpressionList {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_expression_list(self);
+    }
+    
 }
 #[derive(Debug)]
 pub struct Block {
@@ -32,4 +41,11 @@ impl Block {
             expression_list,
         }
     }
+}
+
+impl Visitable for Block {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_block(self);
+    }
+    
 }
