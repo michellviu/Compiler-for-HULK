@@ -1,36 +1,143 @@
 use std::str::FromStr;
-use crate::tokens::{
-    BinOp,
-    Expr,
-};
+use crate::ast;
+use crate::tokens;
+use crate::Expression;
+
 
 grammar;
 
-pub Expr: Box<Expr> = {
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
+
+pub Program: ast::Program = {
+    <list:ExpressionList> => ast::Program::new(list),
+};
+
+pub ExpressionList: ast::ExpressionList = {
+    <e:Expression> ";" <rest:ExpressionList> => {
+        let mut exprs = vec![e];
+        exprs.extend(rest.expressions);
+        ast::ExpressionList::new(exprs)
+    },
+    <e:Expression> => ast::ExpressionList::new(vec![e]),
+};
+
+pub Expression: ast::Expression = {
+    Addition,
+};
+
+pub Addition: ast::Expression = {
+    <l:Addition> <op:PlusMinusBinary> <r:Factor> => ast::Expression::new_binary_op(l, r, op),
     Factor,
 };
 
-ExprOp: BinOp = {
-    "+" => BinOp::Add,
-    "-" => BinOp::Sub,
+PlusMinusBinary: tokens::BinOp = {
+   <s: @L> <t: "+"> <e: @R> => tokens::BinOp::Plus(tokens::Position::new(s, e)),
+   <s: @L> <t: "-"> <e: @R> => tokens::BinOp::Minus(tokens::Position::new(s, e)),
 };
 
-Factor: Box<Expr> = {
-    Factor FactorOp Term => Box::new(Expr::Op(<>)),
+Factor: ast::Expression = {
+    <l:Factor> <op:FactorOp> <r:Term> => ast::Expression::new_binary_op(l, r, op),
     Term,
 };
 
-FactorOp: BinOp = {
-    "*" => BinOp::Mul,
-    "/" => BinOp::Div,
+FactorOp: tokens::BinOp = {
+   <s: @L> <t: "*"> <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
+   <s: @L> <t: "/"> <e: @R> => tokens::BinOp::Div(tokens::Position::new(s, e)),
+   <s: @L> <t: "%"> <e: @R> => tokens::BinOp::Mod(tokens::Position::new(s, e)),
 };
 
-Term: Box<Expr> = {
-    Num => Box::new(Expr::Number(<>)), // (4)
-    "(" <Expr> ")"
+Term: ast::Expression = {
+    <a: Atom> => ast::Expression::new_atom(a),
 };
 
-Num: i32 = {
-    r"[0-9]+" => i32::from_str(<>).unwrap()
+pub Atom: ast::Atom = {
+    <n:NumLiteral> => 
+        ast::Atom::NumberLiteral(n),
+    <b:BoolLiteral> =>
+        ast::Atom::BooleanLiteral(b),
+    <s:StrLiteral> =>
+        ast::Atom::StringLiteral(s),
+    <i:Identifier> => 
+        ast::Atom::Variable(i),
+    GroupedExpression,
+    LetExpression,
+}
+
+LetExpression: ast::Atom = {
+    <k: Let> <a:AssignmentList> <i:In> <e:Atom>
+        => ast::Atom::new_let_expression(k, a, i, e),
+}
+
+Assignment: ast::Assignment = {
+    <id:Identifier> <o:EqualOperator> <e:Expression>
+        => ast::Assignment::new(id, o, e),
+}
+
+EqualOperator: tokens::BinOp = {
+    <s: @L> "=" <e: @R>
+        => tokens::BinOp::Equal(tokens::Position::new(s, e)),
+}
+
+AssignmentList:  Vec<ast::Assignment> = {
+    <a:Assignment> "," <rest:AssignmentList> => {
+        let mut assignments = vec![a];
+        assignments.extend(rest);
+        assignments
+    },
+    <a:Assignment> => vec![a],
+};
+
+GroupedExpression: ast::Atom = {
+     "(" <e: Expression> ")"
+        => ast::Atom::new_grouped_expression(e),
+}
+
+OpenBrace: tokens::GroupingOperator = {
+    <s: @L> "{" <e: @R>
+        => tokens::GroupingOperator::OpenBrace(tokens::Position::new(s, e)),
+}
+
+CloseBrace: tokens::GroupingOperator = {
+    <s: @L> "}" <e: @R>
+        => tokens::GroupingOperator::CloseBrace(tokens::Position::new(s, e)),
+}
+
+Let: tokens::Keyword = {
+    <s: @L> "let" <e: @R>
+        => tokens::Keyword::Let(tokens::Position::new(s, e)),
+};
+
+In: tokens::Keyword = {
+    <s: @L> "in" <e: @R>
+        => tokens::Keyword::In(tokens::Position::new(s, e)),
+};
+
+NumLiteral: tokens::Literal   = {
+   <s: @L> <v:r"[0-9]+"> <e: @R> => tokens::Literal::Number(
+        i32::from_str(v).unwrap(),
+        tokens::Position::new(s, e)
+    ),
+};
+
+BoolLiteral: tokens::Literal = {
+   <s: @L> <v:"true"> <e: @R> => tokens::Literal::Bool(
+        true,
+        tokens::Position::new(s, e)
+    ),
+   <s: @L> <v:"false"> <e: @R> => tokens::Literal::Bool(
+        false,
+        tokens::Position::new(s, e)
+    ),
+};
+
+StrLiteral: tokens::Literal = {
+   <s: @L> <v:r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
+        v.to_string(),
+        tokens::Position::new(s, e)
+    ),
+};
+
+Identifier: tokens::Identifier = {
+   <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> => tokens::Identifier::new(
+        s,e,n
+    ),
 };

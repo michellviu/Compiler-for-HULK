@@ -1,23 +1,11 @@
-use  parser::grammar::ExprParser;
+use  parser::grammar::ProgramParser;
 
-#[test]
-fn calculator4() {
-    let expr = ExprParser::new()
-        .parse("22 * 44 + 66")
+fn main() {
+    let expr = ProgramParser::new()
+        .parse("let x = let y=4 in (y+4) in (x + 3)")
         .unwrap();
-    assert_eq!(&format!("{}", expr), "((22 * 44) + 66)");
+    println!("{:?}", expr);
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
