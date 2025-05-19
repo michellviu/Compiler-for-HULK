@@ -1,6 +1,8 @@
 use super::*;
 use crate::Atom;
 use crate::BinOp;
+use super::super::Visitor;
+use super::super::Visitable;
 
 #[derive(Debug)]
 pub enum Expression{
@@ -16,5 +18,11 @@ impl Expression {
 
     pub fn new_atom(atom: Atom) -> Self {
         Expression::Atom(Box::new(atom))
+    }
+}
+
+impl Visitable for Expression {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_expression(&self);
     }
 }

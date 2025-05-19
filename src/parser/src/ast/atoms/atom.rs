@@ -64,3 +64,18 @@ impl Atom {
     }
 
 }
+
+
+impl Visitable for Atom {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        match self {
+            Atom::LetIn(letin) => visitor.visit_letin(letin),
+            Atom::Block(block) => visitor.visit_block(block),
+            Atom::Group(expr) => visitor.visit_expression(expr),
+            Atom::NumberLiteral(literal) => visitor.visit_literal(literal),
+            Atom::BooleanLiteral(literal) => visitor.visit_literal(literal),
+            Atom::StringLiteral(literal) => visitor.visit_literal(literal),
+            Atom::Variable(identifier) => visitor.visit_identifier(identifier),
+        }
+    }
+}

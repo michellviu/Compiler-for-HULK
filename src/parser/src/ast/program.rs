@@ -1,4 +1,6 @@
 use super::ExpressionList;
+use super::Visitable;
+use super::Visitor;
 
 #[derive(Debug)]
 pub struct Program {
@@ -11,4 +13,11 @@ impl Program {
             expression_list
         }
     }
+}
+
+impl Visitable for Program {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_program(self);
+    }
+    
 }

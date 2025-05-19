@@ -1,11 +1,12 @@
 use super::Expression;
 use crate::tokens::BinOp;
-
+use super::super::Visitor;
+use super::super::Visitable;
 #[derive(Debug)]
 pub struct BinaryOp{
-    left: Box<Expression>,
-    right: Box<Expression>,
-    operator: BinOp,
+   pub left: Box<Expression>,
+   pub right: Box<Expression>,
+   pub operator: BinOp,
 }
 
 impl BinaryOp {
@@ -16,4 +17,11 @@ impl BinaryOp {
             operator,
         }
     }
+}
+
+impl Visitable for BinaryOp {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_binary_op(self);
+    }
+    
 }
