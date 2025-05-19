@@ -1,0 +1,20 @@
+use super::*;
+use crate::Atom;
+use crate::BinOp;
+
+#[derive(Debug)]
+pub enum Expression{
+
+    BinaryOp(BinaryOp),
+    Atom(Box<Atom>),
+}
+
+impl Expression {
+    pub fn new_binary_op(left: Expression, right: Expression, operator: BinOp) -> Self {
+        Expression::BinaryOp(BinaryOp::new(left, right, operator))
+    }
+
+    pub fn new_atom(atom: Atom) -> Self {
+        Expression::Atom(Box::new(atom))
+    }
+}
