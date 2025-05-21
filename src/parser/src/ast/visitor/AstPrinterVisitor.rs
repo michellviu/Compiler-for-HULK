@@ -35,6 +35,7 @@ impl Visitor for AstPrinterVisitor {
         match expr {
             ast::Expression::BinaryOp(binop) => binop.accept(self),
             ast::Expression::Atom(atom) => atom.accept(self),
+            ast::Expression::Print(expr, pos) => self.visit_print(expr, pos),
         }
     }
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
@@ -85,5 +86,11 @@ impl Visitor for AstPrinterVisitor {
     }
     fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
         println!("{}Identifier: {}", self.pad(), identifier);
+    }
+    fn visit_print(&mut self, expr: &ast::Expression, pos: &tokens::Position) {
+        println!("{}Print (pos: {}-{})", self.pad(), pos.start, pos.end);
+        self.indent += 1;
+        expr.accept(self);
+        self.indent -= 1;
     }
 }

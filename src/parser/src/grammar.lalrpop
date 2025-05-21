@@ -3,9 +3,7 @@ use crate::ast;
 use crate::tokens;
 use crate::Expression;
 
-
 grammar;
-
 
 pub Program: ast::Program = {
     <list:ExpressionList> => ast::Program::new(list),
@@ -21,7 +19,13 @@ pub ExpressionList: ast::ExpressionList = {
 };
 
 pub Expression: ast::Expression = {
+    PrintExpression,
     Addition,
+};
+
+PrintExpression: ast::Expression = {
+    <s: @L> "print" "(" <e:Expression> ")" <e2: @R> => 
+        ast::Expression::new_print(e, tokens::Position::new(s, e2)),
 };
 
 pub Addition: ast::Expression = {

@@ -11,7 +11,7 @@ pub trait Visitor {
     fn visit_block(&mut self, block: &ast::atoms::block::Block);
     fn visit_literal(&mut self, literal: &tokens::Literal);
     fn visit_identifier(&mut self, identifier: &tokens::Identifier);
-    // Agrega más métodos según tus nodos
+    fn visit_print(&mut self, expr: &ast::Expression, pos: &tokens::Position);
 }
 
 pub trait Visitable {
