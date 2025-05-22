@@ -4,7 +4,12 @@ use parser::visitor::Visitable;
 
 fn main() {
     let expr = ProgramParser::new()
-        .parse("print (2+2)")
+        .parse("let x=\"hola\" in x;
+    print(x);
+{
+    print(y);
+    let z= 5 in z;
+    };")
         .unwrap();
     let mut printer = AstPrinterVisitor::new();
     expr.accept(&mut printer);

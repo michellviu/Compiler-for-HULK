@@ -9,13 +9,19 @@ pub Program: ast::Program = {
     <list:ExpressionList> => ast::Program::new(list),
 };
 
+pub Block: ast::Atom = {
+    <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
+        ast::Atom::new_block(o, e, c)
+    },
+};
+
 pub ExpressionList: ast::ExpressionList = {
     <e:Expression> ";" <rest:ExpressionList> => {
         let mut exprs = vec![e];
         exprs.extend(rest.expressions);
         ast::ExpressionList::new(exprs)
     },
-    <e:Expression> => ast::ExpressionList::new(vec![e]),
+    <e:Expression> ";" => ast::ExpressionList::new(vec![e]),
 };
 
 pub Expression: ast::Expression = {
@@ -64,6 +70,8 @@ pub Atom: ast::Atom = {
         ast::Atom::Variable(i),
     GroupedExpression,
     LetExpression,
+    Block,
+
 }
 
 LetExpression: ast::Atom = {
@@ -144,4 +152,8 @@ Identifier: tokens::Identifier = {
    <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> => tokens::Identifier::new(
         s,e,n
     ),
+};
+
+Semicolon: tokens::SpecialOp = {
+    <s: @L> ";" <e: @R> => tokens::SpecialOp::Semicolon(tokens::Position::new(s, e)),
 };
