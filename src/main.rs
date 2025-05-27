@@ -1,5 +1,5 @@
 use parser::grammar::ProgramParser;
-use parser::visitor::AstPrinterVisitor::AstPrinterVisitor;
+use parser::visitor::ast_printer_visitor::AstPrinterVisitor;
 use parser::visitor::Visitable;
 
 fn strip_comments(source: &str) -> Result<String, String> {
@@ -81,7 +81,7 @@ fn strip_comments(source: &str) -> Result<String, String> {
 }
 
 fn main() {
-    let source = "let x=\"hola\" in x;
+    let source = "let x=\"hola\" in print(x);
     // This is a single-line comment
     print(x);
     /*

@@ -2,6 +2,7 @@ use super::super::*;
 use super::letin::Assignment;
 use super::*;
 use crate::tokens::*;
+
 #[derive(Debug)]
 pub enum Atom{
 
@@ -12,8 +13,8 @@ pub enum Atom{
     BooleanLiteral(Literal),
     StringLiteral(Literal),
     Variable(Identifier),
+    Print(Print),
 }
-
 
 impl Atom {
 
@@ -63,6 +64,10 @@ impl Atom {
         Atom::Group(Box::new(expression))
     }
 
+    pub fn new_print(print_token: Keyword, expression: Expression) -> Self {
+        Atom::Print(Print::new(print_token, expression))
+    }
+
 }
 
 
@@ -76,6 +81,7 @@ impl Visitable for Atom {
             Atom::BooleanLiteral(literal) => visitor.visit_literal(literal),
             Atom::StringLiteral(literal) => visitor.visit_literal(literal),
             Atom::Variable(identifier) => visitor.visit_identifier(identifier),
+            Atom::Print(print) => visitor.visit_print(print),
         }
     }
 }

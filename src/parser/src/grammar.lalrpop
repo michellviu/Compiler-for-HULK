@@ -25,13 +25,7 @@ pub ExpressionList: ast::ExpressionList = {
 };
 
 pub Expression: ast::Expression = {
-    PrintExpression,
     Addition,
-};
-
-PrintExpression: ast::Expression = {
-    <s: @L> "print" "(" <e:Expression> ")" <e2: @R> => 
-        ast::Expression::new_print(e, tokens::Position::new(s, e2)),
 };
 
 pub Addition: ast::Expression = {
@@ -69,6 +63,7 @@ pub Atom: ast::Atom = {
     <i:Identifier> => 
         ast::Atom::Variable(i),
     GroupedExpression,
+    PrintExpression,
     LetExpression,
     Block,
 
@@ -78,6 +73,11 @@ LetExpression: ast::Atom = {
     <k: Let> <a:AssignmentList> <i:In> <e:Atom>
         => ast::Atom::new_let_expression(k, a, i, e),
 }
+
+PrintExpression: ast::Atom = {
+    <t:Print> "(" <e:Expression> ")" => 
+        ast::Atom::new_print(t, e),
+};
 
 Assignment: ast::Assignment = {
     <id:Identifier> <o:EqualOperator> <e:Expression>
@@ -121,6 +121,11 @@ Let: tokens::Keyword = {
 In: tokens::Keyword = {
     <s: @L> "in" <e: @R>
         => tokens::Keyword::In(tokens::Position::new(s, e)),
+};
+
+Print: tokens::Keyword = {
+    <s: @L> "print" <e: @R>
+        => tokens::Keyword::Print(tokens::Position::new(s, e)),
 };
 
 NumLiteral: tokens::Literal   = {

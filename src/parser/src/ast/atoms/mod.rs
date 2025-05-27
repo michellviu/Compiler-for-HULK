@@ -8,3 +8,6 @@ pub use letin::LetIn;
 pub mod block;
 pub use block::Block;
 pub use block::ExpressionList;
+
+pub mod print;
+pub use print::Print;

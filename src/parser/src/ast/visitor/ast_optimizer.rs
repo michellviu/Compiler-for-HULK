@@ -91,7 +91,7 @@ impl Visitor for AstOptimizer {
 
     fn visit_identifier(&mut self, _identifier: &crate::tokens::Identifier) {}
 
-    fn visit_print(&mut self, expr: &ast::Expression, _pos: &crate::tokens::Position) {
+    fn visit_print(&mut self, expr: &ast::atoms::print::Print) {
         expr.accept(self);
     }
 }

@@ -1,5 +1,5 @@
 pub mod visitor;
-pub mod AstPrinterVisitor;
+pub mod ast_printer_visitor;
 
 pub use visitor::Visitor;
 pub use visitor::Visitable;
