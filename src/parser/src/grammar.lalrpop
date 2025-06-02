@@ -27,6 +27,12 @@ pub ExpressionList: ast::ExpressionList = {
 pub Expression: ast::Expression = {
     PrintExpression,
     Addition,
+    WhileExpression,
+};
+
+WhileExpression: ast::Expression = {
+    "while" "(" <cond:Expression> ")" <body:Expression> =>
+        ast::Expression::new_while(cond, body),
 };
 
 PrintExpression: ast::Expression = {

@@ -36,6 +36,7 @@ impl Visitor for AstPrinterVisitor {
             ast::Expression::BinaryOp(binop) => binop.accept(self),
             ast::Expression::Atom(atom) => atom.accept(self),
             ast::Expression::Print(expr, pos) => self.visit_print(expr, pos),
+            ast::Expression::While(cond, body) => self.visit_while(cond, body),
         }
     }
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
@@ -92,5 +93,17 @@ impl Visitor for AstPrinterVisitor {
         self.indent += 1;
         expr.accept(self);
         self.indent -= 1;
+    }
+    fn visit_while(&mut self, cond: &ast::Expression, body: &ast::Expression) {
+        println!("{}While", self.pad());
+        self.indent += 1;
+        println!("{}Condition:", self.pad());
+        self.indent += 1;
+        cond.accept(self);
+        self.indent -= 1;
+        println!("{}Body:", self.pad());
+        self.indent += 1;
+        body.accept(self);
+        self.indent -= 2;
     }
 }

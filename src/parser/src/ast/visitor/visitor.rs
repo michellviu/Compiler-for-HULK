@@ -12,6 +12,7 @@ pub trait Visitor {
     fn visit_literal(&mut self, literal: &tokens::Literal);
     fn visit_identifier(&mut self, identifier: &tokens::Identifier);
     fn visit_print(&mut self, expr: &ast::Expression, pos: &tokens::Position);
+    fn visit_while(&mut self, cond: &ast::Expression, body: &ast::Expression);
 }
 
 pub trait Visitable {

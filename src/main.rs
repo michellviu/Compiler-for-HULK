@@ -81,29 +81,14 @@ fn strip_comments(source: &str) -> Result<String, String> {
 }
 
 fn main() {
-    let source = "let x=\"hola\" in x;
-    // This is a single-line comment
-    print(x);
-    /*
-    This is a multi-line comment
-    */
-    {
-        print(y);
-        let z= 5 in z;
-    };";
-
-    let cleaned_source = match strip_comments(source) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Error stripping comments: {}", e);
-            return;
-        }
-    };
-
     let expr = ProgramParser::new()
-        .parse(&cleaned_source)
+        .parse("let x=\"hola\" in x;
+    print(x);
+{
+    print(y);
+    let z= 5 in z;
+    };")
         .unwrap();
-
     let mut printer = AstPrinterVisitor::new();
     expr.accept(&mut printer);
 }

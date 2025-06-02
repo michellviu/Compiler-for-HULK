@@ -1,0 +1,839 @@
+use parser::grammar::ProgramParser;
+use parser::visitor::AstPrinterVisitor::AstPrinterVisitor;
+use parser::visitor::Visitable;
+
+fn main() {
+    let expr = ProgramParser::new()
+        .parse("let x=\"hola\" in x;
+    print(x);
+{
+    print(y);
+    let z= 5 in z;
+    };")
+        .unwrap();
+    let mut printer = AstPrinterVisitor::new();
+    expr.accept(&mut printer);
+}
+
+
+// mod ast;
+// mod error;
+// mod lexer;
+// mod parser;
+
+// use std::env;
+// use std::fs;
+
+//     let source = fs::read_to_string(&args[1]).expect("Failed to read file");
+//     let mut lexer = lexer::Lexer::new(&source);
+//     let tokens = lexer.tokenize().expect("Lexer error");
+//     let mut parser = parser::Parser::new(tokens);
+//     let program = parser.parse_program().expect("Parser error");
+
+//     println!("{:#?}", program);
+// }fn main() {
+    lalrpop::process_root().unwrap();
+}use super::super::*;
+use super::letin::Assignment;
+use super::*;
+use crate::tokens::*;
+#[derive(Debug)]
+pub enum Atom{
+
+    LetIn(LetIn),
+    Block(Box<Block>),
+    Group(Box<Expression>),
+    NumberLiteral(Literal),
+    BooleanLiteral(Literal),
+    StringLiteral(Literal),
+    Variable(Identifier),
+}
+
+
+impl Atom {
+
+    pub fn new_number_literal(start: usize, end: usize, value: &str) -> Result<Self, String> {
+        match value.parse::<i32>() {
+            Ok(num) => Ok(Atom::NumberLiteral(Literal::Number(num, Position::new(start, end)))),
+            Err(_) => Err(format!("No se pudo convertir '{}' a número", value)),
+        }
+    }
+
+    pub fn new_boolean_literal(start: usize, end: usize, value: &str) -> Result<Self, String> {
+        match value.parse::<bool>() {
+            Ok(b) => Ok(Atom::BooleanLiteral(Literal::Bool(b, Position::new(start, end)))),
+            Err(_) => Err(format!("No se pudo convertir '{}' a booleano", value)),
+        }
+    }
+
+    pub fn new_string_literal(start: usize, end: usize, value: &str) -> Self {
+        Atom::StringLiteral(Literal::Str(value.to_string(), Position::new(start, end)))
+    }
+
+    pub fn new_identifier(start: usize, end: usize, id: &str) -> Self {
+        Atom::Variable(Identifier {
+            name: id.to_string(),
+            position: Position::new(start, end),
+        })
+    }
+
+    pub fn new_let_expression(
+        let_token: Keyword,
+        assignments: Vec<Assignment>,
+        in_token: Keyword,
+        expression: Atom,
+    ) -> Self {
+        Atom::LetIn(LetIn::new(let_token, assignments, in_token, expression))
+    }
+
+    pub fn new_block(
+        open_brace: GroupingOperator,
+        expressions: ExpressionList,
+        close_brace: GroupingOperator,
+    ) -> Self {
+        Atom::Block(Box::new(Block::new(open_brace, expressions, close_brace)))
+    }
+
+    pub fn new_grouped_expression(expression: Expression) -> Self {
+        Atom::Group(Box::new(expression))
+    }
+
+}
+
+
+impl Visitable for Atom {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        match self {
+            Atom::LetIn(letin) => visitor.visit_letin(letin),
+            Atom::Block(block) => visitor.visit_block(block),
+            Atom::Group(expr) => visitor.visit_expression(expr),
+            Atom::NumberLiteral(literal) => visitor.visit_literal(literal),
+            Atom::BooleanLiteral(literal) => visitor.visit_literal(literal),
+            Atom::StringLiteral(literal) => visitor.visit_literal(literal),
+            Atom::Variable(identifier) => visitor.visit_identifier(identifier),
+        }
+    }
+}use super::super::Expression;
+use crate::tokens::GroupingOperator;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug)]
+pub struct ExpressionList {
+    pub expressions: Vec<Expression>,
+}
+
+impl ExpressionList {
+    pub fn new(expressions: Vec<Expression>) -> Self {
+        ExpressionList {
+            expressions,
+        }
+    }
+}
+
+impl Visitable for ExpressionList {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_expression_list(self);
+    }
+    
+}
+#[derive(Debug)]
+pub struct Block {
+    pub open_brace: GroupingOperator,
+    pub close_brace: GroupingOperator,
+    pub expression_list: ExpressionList,
+}
+
+impl Block {
+    pub fn new(
+        open_brace: GroupingOperator,
+        expression_list: ExpressionList,
+        close_brace: GroupingOperator,
+    ) -> Self {
+        Block {
+            open_brace,
+            close_brace,
+            expression_list,
+        }
+    }
+}
+
+impl Visitable for Block {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_block(self);
+    }
+    
+}use crate::tokens::*;
+use crate::BinOp;
+use crate::Expression;
+use crate::Atom;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug)]
+pub struct Assignment {
+    pub identifier: Identifier,
+    pub op: BinOp,
+    pub body: Box<Expression>,
+}
+
+impl Assignment {
+    pub fn new(identifier: Identifier, op: BinOp, body: Expression) -> Self {
+        Assignment {
+            identifier,
+            op,
+            body: Box::new(body),
+        }
+    }
+}
+
+impl Visitable for Assignment {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_assignment(self);
+    }
+    
+}
+#[derive(Debug)]
+pub struct LetIn {
+    pub let_token: Keyword,
+    pub bindings: Vec<Assignment>,
+    pub in_token: Keyword,
+    pub body: Box<Atom>,
+}
+
+impl LetIn {
+    
+    pub fn new(let_token:Keyword, bindings: Vec<Assignment>,in_token:Keyword, body: Atom) -> Self {
+        LetIn {
+            let_token,
+            bindings,
+            in_token,
+            body: Box::new(body),
+        }
+    }
+}
+
+impl Visitable for LetIn {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_letin(self);
+    }
+    
+}pub mod atom;
+pub use atom::Atom;
+
+pub mod letin;
+pub use letin::Assignment;
+pub use letin::LetIn;
+
+pub mod block;
+pub use block::Block;
+pub use block::ExpressionList;use super::Expression;
+use crate::tokens::BinOp;
+use super::super::Visitor;
+use super::super::Visitable;
+#[derive(Debug)]
+pub struct BinaryOp{
+   pub left: Box<Expression>,
+   pub right: Box<Expression>,
+   pub operator: BinOp,
+}
+
+impl BinaryOp {
+    pub fn new(left: Expression, right: Expression, operator:BinOp) -> Self {
+        BinaryOp {
+            left: Box::new(left),
+            right: Box::new(right),
+            operator,
+        }
+    }
+}
+
+impl Visitable for BinaryOp {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_binary_op(self);
+    }
+    
+}use super::*;
+use crate::Atom;
+use crate::BinOp;
+use crate::tokens;
+use super::super::Visitor;
+use super::super::Visitable;
+
+#[derive(Debug)]
+pub enum Expression {
+    BinaryOp(BinaryOp),
+    Atom(Box<Atom>),
+    Print(Box<Expression>, tokens::Position), // Nueva variante
+}
+
+impl Expression {
+    pub fn new_binary_op(left: Expression, right: Expression, operator: BinOp) -> Self {
+        Expression::BinaryOp(BinaryOp::new(left, right, operator))
+    }
+
+    pub fn new_atom(atom: Atom) -> Self {
+        Expression::Atom(Box::new(atom))
+    }
+
+    pub fn new_print(expr: Expression, pos: tokens::Position) -> Self {
+        Expression::Print(Box::new(expr), pos)
+    }
+}
+
+impl Visitable for Expression {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_expression(&self);
+    }
+}pub mod expressions;
+pub use expressions::Expression;
+
+pub mod binoperation;
+pub use binoperation::BinaryOp;
+
+pub mod ifelse;
+//pub use ifelse::IfElse;
+pub mod atoms;
+pub use atoms::*;
+
+pub mod expressions;
+pub use expressions::*;
+
+pub mod visitor;
+pub use visitor::Visitor;
+pub use visitor::Visitable;
+
+pub mod program;
+pub use program::Program;use super::ExpressionList;
+use super::Visitable;
+use super::Visitor;
+
+#[derive(Debug)]
+pub struct Program {
+    pub expression_list: ExpressionList
+}
+
+impl Program {
+    pub fn new(expression_list: ExpressionList) -> Self {
+        Program {
+            expression_list
+        }
+    }
+}
+
+impl Visitable for Program {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_program(self);
+    }
+    
+}use crate::visitor::Visitor;
+use crate::visitor::Visitable;
+use crate::ast;
+use crate::tokens;
+
+pub struct AstPrinterVisitor {
+    pub indent: usize,
+}
+
+impl AstPrinterVisitor {
+    pub fn new() -> Self {
+        AstPrinterVisitor { indent: 0 }
+    }
+    fn pad(&self) -> String {
+        "  ".repeat(self.indent)
+    }
+}
+
+impl Visitor for AstPrinterVisitor {
+    fn visit_program(&mut self, program: &ast::Program) {
+        println!("{}Program", self.pad());
+        self.indent += 1;
+        program.expression_list.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
+        println!("{}ExpressionList", self.pad());
+        self.indent += 1;
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+        self.indent -= 1;
+    }
+    fn visit_expression(&mut self, expr: &ast::Expression) {
+        match expr {
+            ast::Expression::BinaryOp(binop) => binop.accept(self),
+            ast::Expression::Atom(atom) => atom.accept(self),
+            ast::Expression::Print(expr, pos) => self.visit_print(expr, pos),
+        }
+    }
+    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
+        use crate::ast::atoms::atom::Atom::*;
+        match atom {
+            LetIn(letin) => letin.accept(self),
+            Block(block) => block.accept(self),
+            Group(expr) => {
+                println!("{}Group", self.pad());
+                expr.accept(self);
+            }
+            NumberLiteral(lit) => lit.accept(self),
+            BooleanLiteral(lit) => lit.accept(self),
+            StringLiteral(lit) => lit.accept(self),
+            Variable(id) => id.accept(self),
+        }
+    }
+    fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {
+        println!("{}BinaryOp: {}", self.pad(), binop.operator);
+        self.indent += 1;
+        binop.left.accept(self);
+        binop.right.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_letin(&mut self, letin: &ast::atoms::letin::LetIn) {
+        println!("{}LetIn", self.pad());
+        self.indent += 1;
+        for assign in &letin.bindings {
+            assign.accept(self);
+        }
+        letin.body.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_assignment(&mut self, assign: &ast::atoms::letin::Assignment) {
+        println!("{}Assignment: {} {}", self.pad(), assign.identifier, assign.op);
+        self.indent += 1;
+        assign.body.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_block(&mut self, block: &ast::atoms::block::Block) {
+        println!("{}Block", self.pad());
+        self.indent += 1;
+        block.expression_list.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_literal(&mut self, literal: &tokens::Literal) {
+        println!("{}Literal: {}", self.pad(), literal);
+    }
+    fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
+        println!("{}Identifier: {}", self.pad(), identifier);
+    }
+    fn visit_print(&mut self, expr: &ast::Expression, pos: &tokens::Position) {
+        println!("{}Print (pos: {}-{})", self.pad(), pos.start, pos.end);
+        self.indent += 1;
+        expr.accept(self);
+        self.indent -= 1;
+    }
+}pub mod visitor;
+pub mod AstPrinterVisitor;
+
+pub use visitor::Visitor;
+pub use visitor::Visitable;
+
+use crate::ast;
+use crate::tokens;
+pub trait Visitor {
+    fn visit_program(&mut self, program: &ast::Program);
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList);
+    fn visit_expression(&mut self, expr: &ast::Expression);
+    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom);
+    fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp);
+    fn visit_letin(&mut self, letin: &ast::atoms::letin::LetIn);
+    fn visit_assignment(&mut self, assign: &ast::atoms::letin::Assignment);
+    fn visit_block(&mut self, block: &ast::atoms::block::Block);
+    fn visit_literal(&mut self, literal: &tokens::Literal);
+    fn visit_identifier(&mut self, identifier: &tokens::Identifier);
+    fn visit_print(&mut self, expr: &ast::Expression, pos: &tokens::Position);
+}
+
+pub trait Visitable {
+    fn accept<V: Visitor>(&self, visitor: &mut V);
+}use std::str::FromStr;
+use crate::ast;
+use crate::tokens;
+use crate::Expression;
+
+grammar;
+
+pub Program: ast::Program = {
+    <list:ExpressionList> => ast::Program::new(list),
+};
+
+pub Block: ast::Atom = {
+    <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
+        ast::Atom::new_block(o, e, c)
+    },
+};
+
+pub ExpressionList: ast::ExpressionList = {
+    <e:Expression> ";" <rest:ExpressionList> => {
+        let mut exprs = vec![e];
+        exprs.extend(rest.expressions);
+        ast::ExpressionList::new(exprs)
+    },
+    <e:Expression> ";" => ast::ExpressionList::new(vec![e]),
+};
+
+pub Expression: ast::Expression = {
+    PrintExpression,
+    Addition,
+};
+
+PrintExpression: ast::Expression = {
+    <s: @L> "print" "(" <e:Expression> ")" <e2: @R> => 
+        ast::Expression::new_print(e, tokens::Position::new(s, e2)),
+};
+
+pub Addition: ast::Expression = {
+    <l:Addition> <op:PlusMinusBinary> <r:Factor> => ast::Expression::new_binary_op(l, r, op),
+    Factor,
+};
+
+PlusMinusBinary: tokens::BinOp = {
+   <s: @L> <t: "+"> <e: @R> => tokens::BinOp::Plus(tokens::Position::new(s, e)),
+   <s: @L> <t: "-"> <e: @R> => tokens::BinOp::Minus(tokens::Position::new(s, e)),
+};
+
+Factor: ast::Expression = {
+    <l:Factor> <op:FactorOp> <r:Term> => ast::Expression::new_binary_op(l, r, op),
+    Term,
+};
+
+FactorOp: tokens::BinOp = {
+   <s: @L> <t: "*"> <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
+   <s: @L> <t: "/"> <e: @R> => tokens::BinOp::Div(tokens::Position::new(s, e)),
+   <s: @L> <t: "%"> <e: @R> => tokens::BinOp::Mod(tokens::Position::new(s, e)),
+};
+
+Term: ast::Expression = {
+    <a: Atom> => ast::Expression::new_atom(a),
+};
+
+pub Atom: ast::Atom = {
+    <n:NumLiteral> => 
+        ast::Atom::NumberLiteral(n),
+    <b:BoolLiteral> =>
+        ast::Atom::BooleanLiteral(b),
+    <s:StrLiteral> =>
+        ast::Atom::StringLiteral(s),
+    <i:Identifier> => 
+        ast::Atom::Variable(i),
+    GroupedExpression,
+    LetExpression,
+    Block,
+
+}
+
+LetExpression: ast::Atom = {
+    <k: Let> <a:AssignmentList> <i:In> <e:Atom>
+        => ast::Atom::new_let_expression(k, a, i, e),
+}
+
+Assignment: ast::Assignment = {
+    <id:Identifier> <o:EqualOperator> <e:Expression>
+        => ast::Assignment::new(id, o, e),
+}
+
+EqualOperator: tokens::BinOp = {
+    <s: @L> "=" <e: @R>
+        => tokens::BinOp::Equal(tokens::Position::new(s, e)),
+}
+
+AssignmentList:  Vec<ast::Assignment> = {
+    <a:Assignment> "," <rest:AssignmentList> => {
+        let mut assignments = vec![a];
+        assignments.extend(rest);
+        assignments
+    },
+    <a:Assignment> => vec![a],
+};
+
+GroupedExpression: ast::Atom = {
+     "(" <e: Expression> ")"
+        => ast::Atom::new_grouped_expression(e),
+}
+
+OpenBrace: tokens::GroupingOperator = {
+    <s: @L> "{" <e: @R>
+        => tokens::GroupingOperator::OpenBrace(tokens::Position::new(s, e)),
+}
+
+CloseBrace: tokens::GroupingOperator = {
+    <s: @L> "}" <e: @R>
+        => tokens::GroupingOperator::CloseBrace(tokens::Position::new(s, e)),
+}
+
+Let: tokens::Keyword = {
+    <s: @L> "let" <e: @R>
+        => tokens::Keyword::Let(tokens::Position::new(s, e)),
+};
+
+In: tokens::Keyword = {
+    <s: @L> "in" <e: @R>
+        => tokens::Keyword::In(tokens::Position::new(s, e)),
+};
+
+NumLiteral: tokens::Literal   = {
+   <s: @L> <v:r"[0-9]+"> <e: @R> => tokens::Literal::Number(
+        i32::from_str(v).unwrap(),
+        tokens::Position::new(s, e)
+    ),
+};
+
+BoolLiteral: tokens::Literal = {
+   <s: @L> <v:"true"> <e: @R> => tokens::Literal::Bool(
+        true,
+        tokens::Position::new(s, e)
+    ),
+   <s: @L> <v:"false"> <e: @R> => tokens::Literal::Bool(
+        false,
+        tokens::Position::new(s, e)
+    ),
+};
+
+StrLiteral: tokens::Literal = {
+   <s: @L> <v:r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
+        v.to_string(),
+        tokens::Position::new(s, e)
+    ),
+};
+
+Identifier: tokens::Identifier = {
+   <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> => tokens::Identifier::new(
+        s,e,n
+    ),
+};
+
+Semicolon: tokens::SpecialOp = {
+    <s: @L> ";" <e: @R> => tokens::SpecialOp::Semicolon(tokens::Position::new(s, e)),
+};use lalrpop_util::lalrpop_mod;
+lalrpop_mod!(pub grammar);
+
+mod ast;
+pub use ast::*;
+
+pub mod tokens;
+pub use tokens::*;
+
+pub use grammar::ProgramParser;use std::fmt;
+use super::position::Position;
+use super::super::Visitable;
+use super::super::Visitor;
+#[derive(Debug)]
+pub struct Identifier {
+    pub name: String,
+    pub position: Position,
+}
+
+impl Identifier {
+    pub fn new(start: usize, end: usize, id: &str) -> Self {
+        Identifier {
+            position: Position::new(start, end),
+            name: id.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl Visitable for Identifier {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_identifier(&self);
+    }
+    
+}use std::fmt::Display;
+use super::position::Position;
+
+#[derive(Debug,Clone, Copy)]
+pub enum Keyword {
+    Let(Position),
+    In(Position),
+    If(Position),
+    Else(Position),
+    Elif(Position),
+    Print(Position),
+    While(Position),
+    For(Position),
+    Function(Position),
+    
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+       let s = match self {
+            Keyword::Let(_) => "let",
+            Keyword::If(_) => "if",
+            Keyword::Else(_) => "else",
+            Keyword::While(_) => "while",
+            Keyword::Print(_) => "print",
+            Keyword::In(_) => "in",
+            Keyword::Elif(_) => "elif",
+            Keyword::For(_) => "for",
+            Keyword::Function(_) => "function",
+        };
+        write!(f, "{}", s)
+    }
+}use std::fmt;
+use super::position::Position;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug)]
+pub enum Literal {
+    Number(i32, Position),
+    Str(String, Position),
+    Bool(bool, Position),
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::Number(n, _) => write!(f, "{}", n),
+            Literal::Str(s, _) => write!(f, "\"{}\"", s),
+            Literal::Bool(b, _) => write!(f, "{}", b),
+        }
+    }
+}
+
+impl Visitable for Literal {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_literal(&self);
+    }
+    
+}
+pub mod identifier;
+pub mod keywords;
+pub mod literal;
+pub mod operator;
+pub mod position;
+
+pub use identifier::Identifier;
+pub use keywords::Keyword;
+pub use literal::Literal;
+pub use operator::SpecialOp;
+pub use operator::UnaryOp;
+pub use operator::BinOp;
+pub use operator::GroupingOperator;
+pub use position::Position;use std::fmt;
+use super::position::Position;
+#[derive(Debug)]
+pub enum BinOp {
+    // Binary operators
+    Mul(Position),
+    Div(Position),
+    Mod(Position),
+    Pow(Position),
+    Plus(Position),
+    Minus(Position),
+
+    // Comparison operators
+    EqualEqual(Position),
+    NotEqual(Position),      // !=
+    Less(Position),
+    LessEqual(Position),
+    Greater(Position),
+    GreaterEqual(Position),
+
+    // Logical operators
+    AndAnd(Position),        // &&
+    OrOr(Position),          // ||
+    Equal(Position),         // =
+    Assign(Position),        // :=
+    ConcatString(Position),  // @
+}
+
+
+impl fmt::Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            BinOp::Mul(_) => "*",
+            BinOp::Div(_) => "/",
+            BinOp::Plus(_) => "+",
+            BinOp::Minus(_) => "-",
+            BinOp::Mod(_) => "%",
+            BinOp::Pow(_) => "^",
+            BinOp::EqualEqual(_) => "==",
+            BinOp::NotEqual(_) => "!=",
+            BinOp::Less(_) => "<",
+            BinOp::LessEqual(_) => "<=",
+            BinOp::Greater(_) => ">",
+            BinOp::GreaterEqual(_) => ">=",
+            BinOp::AndAnd(_) => "&&",
+            BinOp::OrOr(_) => "||",
+            BinOp::Equal(_) => "=",
+            BinOp::Assign(_) => ":=",
+            BinOp::ConcatString(_) => "@",
+        };
+        write!(f, "{}", s)
+    }
+}
+#[derive(Debug)]
+pub enum UnaryOp {
+    Plus(Position),
+    Minus(Position),
+    Not(Position),
+}
+
+
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            UnaryOp::Plus(_) => "+",
+            UnaryOp::Minus(_) => "-",
+            UnaryOp::Not(_) => "!",
+        };
+        write!(f, "{}", s)
+    }
+}
+#[derive(Debug)]
+pub enum SpecialOp {
+    Semicolon(Position),
+    Comma(Position),
+    Colon(Position),
+    Dot(Position),
+    Arrow(Position),
+}
+
+impl fmt::Display for SpecialOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            SpecialOp::Semicolon(_) => ";",
+            SpecialOp::Comma(_) => ",",
+            SpecialOp::Colon(_) => ":",
+            SpecialOp::Dot(_) => ".",
+            SpecialOp::Arrow(_) => "=>",
+        };
+        write!(f, "{}", s)
+    }
+}
+#[derive(Debug)]
+pub enum GroupingOperator {
+    OpenParen(Position),
+    CloseParen(Position),
+    OpenBrace(Position),
+    CloseBrace(Position),
+}
+
+impl fmt::Display for GroupingOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            GroupingOperator::OpenParen(_) => "(",
+            GroupingOperator::CloseParen(_) => ")",
+            GroupingOperator::OpenBrace(_) => "{",
+            GroupingOperator::CloseBrace(_) => "}",
+        };
+        write!(f, "{}", s)
+    }
+}#[derive(Copy, Clone)]
+#[derive(Debug)]
+pub struct Position {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Position {
+    pub fn new(start: usize, end: usize) -> Self {
+        Position { start, end }
+    }
+}
