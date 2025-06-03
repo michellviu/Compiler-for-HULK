@@ -82,12 +82,10 @@ fn strip_comments(source: &str) -> Result<String, String> {
 
 fn main() {
     let expr = ProgramParser::new()
-        .parse("let x=\"hola\" in x;
-    print(x);
-{
-    print(y);
-    let z= 5 in z;
-    };")
+        .parse("while (true) {
+    print(1);
+};
+")
         .unwrap();
     let mut printer = AstPrinterVisitor::new();
     expr.accept(&mut printer);
