@@ -81,16 +81,24 @@ fn strip_comments(source: &str) -> Result<String, String> {
 }
 
 fn main() {
-    let source = "let x=\"hola\" in print(x);
-    // This is a single-line comment
-    print(x);
-    /*
-    This is a multi-line comment
-    */
+    let source = "
+    if (true)
     {
+     print(x);
+     print(let y=5 in y;);
+    }
+    elif (false)
+    {
+        print(x);
+        if (true)
+            print(y);
+        else
+            print(0);
+    }
+    else 
         print(y);
-        let z= 5 in z;
-    };";
+    
+   ";
 
     let cleaned_source = match strip_comments(source) {
         Ok(s) => s,

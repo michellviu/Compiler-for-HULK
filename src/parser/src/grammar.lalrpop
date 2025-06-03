@@ -9,20 +9,16 @@ pub Program: ast::Program = {
     <list:ExpressionList> => ast::Program::new(list),
 };
 
-pub Block: ast::Atom = {
-    <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
-        ast::Atom::new_block(o, e, c)
-    },
-};
 
 pub ExpressionList: ast::ExpressionList = {
-    <e:Expression> ";" <rest:ExpressionList> => {
+    <e:Expression> <rest:ExpressionList> => {
         let mut exprs = vec![e];
         exprs.extend(rest.expressions);
         ast::ExpressionList::new(exprs)
     },
-    <e:Expression> ";" => ast::ExpressionList::new(vec![e]),
+    <e:Expression> =>  ast::ExpressionList::new(vec![e]),
 };
+
 
 pub Expression: ast::Expression = {
     Addition,
@@ -62,22 +58,90 @@ pub Atom: ast::Atom = {
         ast::Atom::StringLiteral(s),
     <i:Identifier> => 
         ast::Atom::Variable(i),
-    GroupedExpression,
-    PrintExpression,
-    LetExpression,
-    Block,
+    <i:Instruction> => 
+        i,
+    // GroupedExpression,
+    // PrintExpression,
+    // LetExpression,
+    // IfElseExpression,
+    // Block,
 
 }
+
+pub Instruction: ast::Atom = {
+    <s:Statement> ";" => s,
+    <e:ExprNoSemi> => e,
+};
+
+// Instrucciones que requieren ;
+pub Statement: ast::Atom = {
+    PrintExpression,
+    LetExpression,
+};
+
+// Instrucciones que NO requieren ;
+pub ExprNoSemi: ast::Atom = {
+    IfElseExpression,
+    Block,
+    GroupedExpression,
+
+};
+
+pub Block: ast::Atom = {
+    <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
+        ast::Atom::new_block(o, e, c)
+    },
+};
 
 LetExpression: ast::Atom = {
     <k: Let> <a:AssignmentList> <i:In> <e:Atom>
         => ast::Atom::new_let_expression(k, a, i, e),
 }
 
+IfElseExpression: ast::Atom = {
+    <if_token:If> "(" <cond:Expression> ")" <then_branch:Atom>
+        <elifs:ElifBranchesOpt> <else_branch:ElseBranch> =>
+            ast::Atom::new_ifelse(
+                if_token,
+                Box::new(cond),
+                Box::new(then_branch),
+                elifs,
+                else_branch.0,
+                Box::new(else_branch.1)
+            ),
+};
+
+
+#[inline]
+ElifBranchesOpt: Vec<(tokens::Keyword, ast::Expression, ast::Atom)> = {
+    <e:ElifBranches> => e,
+    => vec![],
+};
+
+
+ElifBranches: Vec<(tokens::Keyword, ast::Expression, ast::Atom)> = {
+    <head:ElifBranch> <tail:ElifBranches> => {
+        let mut v = vec![head];
+        v.extend(tail);
+        v
+    },
+    <head:ElifBranch> => vec![head],
+};
+
+ElifBranch: (tokens::Keyword, ast::Expression, ast::Atom) = {
+    <elif_token:Elif> "(" <cond:Expression> ")" <body:Atom>
+        => (elif_token, cond, body),
+};
+
+ElseBranch: (tokens::Keyword, ast::Atom) = {
+    <else_token:Else> <body:Atom> => (else_token, body),
+};
+
 PrintExpression: ast::Atom = {
     <t:Print> "(" <e:Expression> ")" => 
         ast::Atom::new_print(t, e),
 };
+
 
 Assignment: ast::Assignment = {
     <id:Identifier> <o:EqualOperator> <e:Expression>
@@ -126,6 +190,21 @@ In: tokens::Keyword = {
 Print: tokens::Keyword = {
     <s: @L> "print" <e: @R>
         => tokens::Keyword::Print(tokens::Position::new(s, e)),
+};
+
+If: tokens::Keyword = {
+    <s: @L> "if" <e: @R>
+        => tokens::Keyword::If(tokens::Position::new(s, e)),
+};
+
+Elif: tokens::Keyword = {
+    <s: @L> "elif" <e: @R>
+        => tokens::Keyword::Elif(tokens::Position::new(s, e)),
+};
+
+Else: tokens::Keyword = {
+    <s: @L> "else" <e: @R>
+        => tokens::Keyword::Else(tokens::Position::new(s, e)),
 };
 
 NumLiteral: tokens::Literal   = {

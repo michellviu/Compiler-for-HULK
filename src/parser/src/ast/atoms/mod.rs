@@ -11,3 +11,6 @@ pub use block::ExpressionList;
 
 pub mod print;
 pub use print::Print;
+
+pub mod ifelse;
+pub use ifelse::IfElse;

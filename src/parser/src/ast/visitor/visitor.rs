@@ -12,7 +12,10 @@ pub trait Visitor {
     fn visit_literal(&mut self, literal: &tokens::Literal);
     fn visit_identifier(&mut self, identifier: &tokens::Identifier);
     fn visit_print(&mut self, expr: &ast::atoms::print::Print);
-}
+    fn visit_ifelse(&mut self, ifelse: &ast::atoms::ifelse::IfElse);
+        
+    }
+
 
 pub trait Visitable {
     fn accept<V: Visitor>(&self, visitor: &mut V);

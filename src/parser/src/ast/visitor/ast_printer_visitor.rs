@@ -52,6 +52,7 @@ impl Visitor for AstPrinterVisitor {
             StringLiteral(lit) => lit.accept(self),
             Variable(id) => id.accept(self),
             Print(print) => print.accept(self),
+            IfElse(ifelse) => ifelse.accept(self),
         }
     }
     fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {
@@ -94,4 +95,40 @@ impl Visitor for AstPrinterVisitor {
         expr.expression.accept(self);
         self.indent -= 1;
     }
+
+    fn visit_ifelse(&mut self, ifelse: &ast::atoms::ifelse::IfElse) {
+        println!("{}IfElse", self.pad());
+        self.indent += 1;
+        println!("{}If:", self.pad());
+        self.indent += 1;
+        println!("{}Condition:", self.pad());
+        self.indent += 1;
+        ifelse.condition.accept(self);
+        self.indent -= 1;
+        println!("{}Then:", self.pad());
+        self.indent += 1;
+        ifelse.then_branch.accept(self);
+        self.indent -= 1;
+        for (elif_token, elif_condition, elif_branch) in &ifelse.elif_branches {
+            
+            self.indent -=1 ;
+            println!("{}Elif:", self.pad());
+            self.indent += 1;
+            println!("{}Condition:", self.pad());
+            self.indent += 1;
+            elif_condition.accept(self);
+            self.indent -= 1;
+            println!("{}Branch:", self.pad());
+            self.indent += 1;
+            elif_branch.accept(self);
+            self.indent -= 1;
+        }
+        self.indent -= 1;
+        println!("{}Else:", self.pad());
+        self.indent += 1;
+        ifelse.else_branch.accept(self);
+        self.indent -= 1;
+    }
+
+
 }

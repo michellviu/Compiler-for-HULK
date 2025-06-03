@@ -7,6 +7,7 @@ use crate::tokens::*;
 pub enum Atom{
 
     LetIn(LetIn),
+    IfElse(IfElse),
     Block(Box<Block>),
     Group(Box<Expression>),
     NumberLiteral(Literal),
@@ -68,6 +69,24 @@ impl Atom {
         Atom::Print(Print::new(print_token, expression))
     }
 
+    pub fn new_ifelse(
+        if_token: Keyword,
+        condition: Box<Expression>,
+        then_branch: Box<Atom>,
+        elif_branches: Vec<(Keyword, Expression, Atom)>,
+        else_token: Keyword,
+        else_branch: Box<Atom>,
+    ) -> Self {
+        Atom::IfElse(IfElse::new(
+            if_token,
+            condition,
+            then_branch,
+            elif_branches,
+            else_token,
+            else_branch,
+        ))
+    }
+
 }
 
 
@@ -82,6 +101,7 @@ impl Visitable for Atom {
             Atom::StringLiteral(literal) => visitor.visit_literal(literal),
             Atom::Variable(identifier) => visitor.visit_identifier(identifier),
             Atom::Print(print) => visitor.visit_print(print),
+            Atom::IfElse(ifelse) => visitor.visit_ifelse(ifelse),
         }
     }
 }
