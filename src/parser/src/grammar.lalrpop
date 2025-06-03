@@ -25,9 +25,11 @@ pub ExpressionList: ast::ExpressionList = {
 };
 
 pub Expression: ast::Expression = {
+     WhileExpression,
+    LetExpression,
     PrintExpression,
     Addition,
-    WhileExpression,
+   
 };
 
 WhileExpression: ast::Expression = {
@@ -75,15 +77,18 @@ pub Atom: ast::Atom = {
     <i:Identifier> => 
         ast::Atom::Variable(i),
     GroupedExpression,
-    LetExpression,
+    
     Block,
 
 }
 
-LetExpression: ast::Atom = {
-    <k: Let> <a:AssignmentList> <i:In> <e:Atom>
-        => ast::Atom::new_let_expression(k, a, i, e),
-}
+LetExpression: ast::Expression = {
+    <k: Let> <a:AssignmentList> <i:In> <e:Expression>
+        => ast::Expression::new_atom(
+            ast::Atom::new_let_expression(k, a, i, ast::Atom::new_grouped_expression(e))
+        ),
+};
+
 
 Assignment: ast::Assignment = {
     <id:Identifier> <o:EqualOperator> <e:Expression>

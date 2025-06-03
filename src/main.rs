@@ -82,8 +82,10 @@ fn strip_comments(source: &str) -> Result<String, String> {
 
 fn main() {
     let expr = ProgramParser::new()
-        .parse("while (true) {
-    print(1);
+        .parse("let x = 3 in
+while (true) {
+    print(x);
+    
 };
 ")
         .unwrap();
