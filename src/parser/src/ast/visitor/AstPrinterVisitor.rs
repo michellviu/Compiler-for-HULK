@@ -1,7 +1,7 @@
-use crate::visitor::Visitor;
-use crate::visitor::Visitable;
 use crate::ast;
 use crate::tokens;
+use crate::visitor::Visitable;
+use crate::visitor::Visitor;
 
 pub struct AstPrinterVisitor {
     pub indent: usize,
@@ -37,8 +37,10 @@ impl Visitor for AstPrinterVisitor {
             ast::Expression::Atom(atom) => atom.accept(self),
             ast::Expression::Print(expr, pos) => self.visit_print(expr, pos),
             ast::Expression::While(cond, body) => self.visit_while(cond, body),
+            ast::Expression::IfElse(ifelse) => ifelse.accept(self), // ✅ ESTA LÍNEA FALTABA
         }
     }
+
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
         use crate::ast::atoms::atom::Atom::*;
         match atom {
@@ -70,8 +72,44 @@ impl Visitor for AstPrinterVisitor {
         letin.body.accept(self);
         self.indent -= 1;
     }
+    fn visit_ifelse(&mut self, ifelse: &ast::expressions::ifelse::IfElse) {
+        println!("{}If", self.pad());
+        self.indent += 1;
+        println!("{}Condition:", self.pad());
+        self.indent += 1;
+        ifelse.condition.accept(self);
+        self.indent -= 1;
+
+        println!("{}Then:", self.pad());
+        self.indent += 1;
+        ifelse.then_branch.accept(self);
+        self.indent -= 1;
+
+        for (elif_kw, cond, branch) in &ifelse.elif_branches {
+            println!("{}Elif:", self.pad());
+            self.indent += 1;
+            cond.accept(self);
+            branch.accept(self);
+            self.indent -= 1;
+        }
+
+        if let Some(else_expr) = &ifelse.else_branch {
+            println!("{}Else:", self.pad());
+            self.indent += 1;
+            else_expr.accept(self);
+            self.indent -= 1;
+        }
+
+        self.indent -= 1;
+    }
+
     fn visit_assignment(&mut self, assign: &ast::atoms::letin::Assignment) {
-        println!("{}Assignment: {} {}", self.pad(), assign.identifier, assign.op);
+        println!(
+            "{}Assignment: {} {}",
+            self.pad(),
+            assign.identifier,
+            assign.op
+        );
         self.indent += 1;
         assign.body.accept(self);
         self.indent -= 1;

@@ -1,7 +1,7 @@
 use crate::ast;
-use crate::tokens;
-use crate::ast::visitor::{Visitor, Visitable};
 use crate::ast::expressions::binoperation::BinaryOp;
+use crate::ast::visitor::{Visitable, Visitor};
+use crate::tokens;
 use crate::tokens::BinOp;
 
 pub struct TypeChecker {
@@ -49,6 +49,17 @@ impl Visitor for TypeChecker {
     fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
         expr_list.expressions.iter().for_each(|e| e.accept(self));
     }
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        ifelse.condition.accept(self);
+        ifelse.then_branch.accept(self);
+        for (_, cond, expr) in &ifelse.elif_branches {
+            cond.accept(self);
+            expr.accept(self);
+        }
+        if let Some(branch) = &ifelse.else_branch {
+            branch.accept(self);
+        }
+    }
 
     fn visit_expression(&mut self, expr: &ast::Expression) {
         expr.accept(self);
@@ -69,10 +80,12 @@ impl Visitor for TypeChecker {
             let right_is_number = self.is_number_type(&binop.right);
 
             if !(left_is_string || left_is_number) {
-                self.errors.push(format!("Left operand of @ must be string or number"));
+                self.errors
+                    .push(format!("Left operand of @ must be string or number"));
             }
             if !(right_is_string || right_is_number) {
-                self.errors.push(format!("Right operand of @ must be string or number"));
+                self.errors
+                    .push(format!("Right operand of @ must be string or number"));
             }
 
             // Coercion logic would go here if we mutate the AST
@@ -90,7 +103,11 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_block(&mut self, block: &ast::atoms::block::Block) {
-        block.expressions.expressions.iter().for_each(|e| e.accept(self));
+        block
+            .expressions
+            .expressions
+            .iter()
+            .for_each(|e| e.accept(self));
     }
 
     fn visit_literal(&mut self, _literal: &tokens::Literal) {}

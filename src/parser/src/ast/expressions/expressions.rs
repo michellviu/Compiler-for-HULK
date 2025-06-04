@@ -1,19 +1,24 @@
+use super::super::Visitable;
+use super::super::Visitor;
 use super::*;
 use crate::Atom;
 use crate::BinOp;
 use crate::tokens;
-use super::super::Visitor;
-use super::super::Visitable;
 
 #[derive(Debug)]
 pub enum Expression {
     BinaryOp(BinaryOp),
     Atom(Box<Atom>),
+    IfElse(Box<ifelse::IfElse>),
     Print(Box<Expression>, tokens::Position), // Nueva variante
-    While(Box<Expression>, Box<Expression>), // ← esta línea nueva
+    While(Box<Expression>, Box<Expression>),  // ← esta línea nueva
 }
 
 impl Expression {
+    pub fn new_ifelse(ifelse: ifelse::IfElse) -> Self {
+        Expression::IfElse(Box::new(ifelse))
+    }
+
     pub fn new_binary_op(left: Expression, right: Expression, operator: BinOp) -> Self {
         Expression::BinaryOp(BinaryOp::new(left, right, operator))
     }
@@ -36,6 +41,7 @@ impl Visitable for Expression {
         match self {
             Expression::BinaryOp(binop) => visitor.visit_binary_op(binop),
             Expression::Atom(atom) => atom.accept(visitor),
+            Expression::IfElse(ifelse) => ifelse.accept(visitor),
             Expression::Print(expr, pos) => visitor.visit_print(expr, pos),
             Expression::While(cond, body) => visitor.visit_while(cond, body), // ← nuevo
         }

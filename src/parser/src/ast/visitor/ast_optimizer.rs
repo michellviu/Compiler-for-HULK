@@ -1,6 +1,6 @@
 use crate::ast;
-use crate::ast::visitor::{Visitor, Visitable};
 use crate::ast::expressions::binoperation::BinaryOp;
+use crate::ast::visitor::{Visitable, Visitor};
 use crate::tokens::BinOp;
 
 pub struct AstOptimizer;
@@ -48,6 +48,18 @@ impl Visitor for AstOptimizer {
     fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
         for expr in &expr_list.expressions {
             expr.accept(self);
+        }
+    }
+
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        ifelse.condition.accept(self);
+        ifelse.then_branch.accept(self);
+        for (_, cond, expr) in &ifelse.elif_branches {
+            cond.accept(self);
+            expr.accept(self);
+        }
+        if let Some(branch) = &ifelse.else_branch {
+            branch.accept(self);
         }
     }
 
