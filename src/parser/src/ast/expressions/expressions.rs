@@ -47,7 +47,7 @@ impl Visitable for Expression {
             Expression::BinaryOp(binop) => visitor.visit_binary_op(binop),
             Expression::Atom(atom) => atom.accept(visitor),
             Expression::IfElse(ifelse) => ifelse.accept(visitor),
-            Expression::Print(expr, pos) => visitor.visit_print(expr),
+            Expression::Print(expr, _pos) => visitor.visit_print(expr),
             Expression::While(cond, body) => visitor.visit_while(cond, body), // ← nuevo
             Expression::LetIn(letin) => letin.accept(visitor), // ← nueva variante
         }

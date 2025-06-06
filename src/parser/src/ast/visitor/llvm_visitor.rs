@@ -110,7 +110,7 @@ impl Visitor for LLVMGenerator {
                 let len = bytes.len() + 1; // +1 para el null terminator
                 let mut str_bytes = bytes.to_vec();
                 str_bytes.push(0);
-                let str_const = str_bytes
+                let _str_const = str_bytes
                     .iter()
                     .map(|b| format!("\\{:02X}", b))
                     .collect::<String>();
@@ -136,14 +136,14 @@ impl Visitor for LLVMGenerator {
                     value = value_temp
                 ));
                 }
-                Atom::BooleanLiteral(lit) => {
+                Atom::BooleanLiteral(_lit) => {
                     // Evalúa el booleano
                     expr.accept(self);
                     let value_temp = self.last_temp.clone();
                     let true_label = self.next_temp();
                     let false_label = self.next_temp();
                     let end_label = self.next_temp();
-                    let result_temp = self.next_temp();
+                    let _result_temp = self.next_temp();
                     // Selecciona la cadena "true" o "false"
                     self.code.push(format!(
                         "br i1 {cond}, label %{true_label}, label %{false_label}",
@@ -169,7 +169,7 @@ impl Visitor for LLVMGenerator {
                     ));
                     self.code.push(format!("{}:", &end_label[1..]));
                 }
-                Atom::StringLiteral(lit) => {
+                Atom::StringLiteral(_lit) => {
                     // Suponiendo que tienes la cadena en el IR como un global
                     let str_label = format!("@.str_{}", self.temp_count); // Debes generar y declarar el global
                     self.code.push(format!(

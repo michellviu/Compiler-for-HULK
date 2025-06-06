@@ -1,7 +1,6 @@
 use crate::tokens::*;
 use crate::BinOp;
 use crate::Expression;
-use crate::Atom;
 use super::super::Visitable;
 use super::super::Visitor;
 

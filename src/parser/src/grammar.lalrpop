@@ -27,7 +27,7 @@ pub ExpressionList: ast::ExpressionList = {
 };
 
 // Esta es la regla recursiva para múltiples expresiones con `;`
-NonEmptyExpressionList: Vec<ast::Expression> = {
+NonEmptyExpressionList: Vec<Expression> = {
     <e:Expression> ";" <rest:NonEmptyExpressionList> => {
         let mut v = vec![e];
         v.extend(rest);

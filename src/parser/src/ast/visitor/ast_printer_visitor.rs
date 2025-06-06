@@ -35,7 +35,7 @@ impl Visitor for AstPrinterVisitor {
         match expr {
             ast::Expression::BinaryOp(binop) => binop.accept(self),
             ast::Expression::Atom(atom) => atom.accept(self),
-            ast::Expression::Print(expr, pos) => self.visit_print(expr),
+            ast::Expression::Print(expr, _pos) => self.visit_print(expr),
             ast::Expression::While(cond, body) => self.visit_while(cond, body),
             ast::Expression::IfElse(ifelse) => ifelse.accept(self), // ✅ ESTA LÍNEA FALTABA
             ast::Expression::LetIn(letin) => letin.accept(self),
@@ -86,7 +86,7 @@ impl Visitor for AstPrinterVisitor {
         ifelse.then_branch.accept(self);
         self.indent -= 1;
 
-        for (elif_kw, cond, branch) in &ifelse.elif_branches {
+        for (_elif_kw, cond, branch) in &ifelse.elif_branches {
             println!("{}Elif:", self.pad());
             self.indent += 1;
             cond.accept(self);
