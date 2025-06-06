@@ -5,5 +5,7 @@
 declare i32 @printf(i8*, ...)
 
 define i32 @main() {
+  %t0 = add i32 0, 5
+  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.fmt_int, i32 0, i32 0), i32 %t0)
   ret i32 0
 }

@@ -84,7 +84,7 @@ fn strip_comments(source: &str) -> Result<String, String> {
 fn main() {
     let expr = ProgramParser::new()
         .parse(" 
-       let x = 5 in print(x + 2);
+       print(5);
     
 ")
         .unwrap();
