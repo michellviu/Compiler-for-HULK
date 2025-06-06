@@ -1,13 +1,9 @@
 # Makefile para Hulk Compiler
 
 ifeq ($(OS),Windows_NT)
-    RM = del /Q
     EXE = .exe
-    RUN = .\script.exe
 else
-    RM = rm -rf
     EXE =
-    RUN = ./script
 endif
 
 CLANG = clang
