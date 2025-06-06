@@ -1,6 +1,7 @@
 use parser::grammar::ProgramParser;
 use parser::visitor::AstPrinterVisitor::AstPrinterVisitor;
 use parser::visitor::Visitable;
+use parser::visitor::LLVMGenerator;
 
 fn strip_comments(source: &str) -> Result<String, String> {
     let mut result = String::with_capacity(source.len());
@@ -82,11 +83,29 @@ fn strip_comments(source: &str) -> Result<String, String> {
 
 fn main() {
     let expr = ProgramParser::new()
-        .parse(" if (true) print (true); else print(false);;
+        .parse(" 
+       let x = 5 in print(x + 2);
     
-
 ")
         .unwrap();
     let mut printer = AstPrinterVisitor::new();
     expr.accept(&mut printer);
+    
+    let mut llvm_gen = LLVMGenerator::new();
+    expr.accept(&mut llvm_gen);
+
+   // Escribe el archivo LLVM IR
+    use std::fs::File;
+    use std::io::Write;
+    let mut file = File::create("output.ll").unwrap();
+
+    for line in LLVMGenerator::llvm_header() {
+        writeln!(file, "{}", line).unwrap();
+    }
+    for line in llvm_gen.code {
+        writeln!(file, "  {}", line).unwrap();
+    }
+    for line in LLVMGenerator::llvm_footer() {
+        writeln!(file, "{}", line).unwrap();
+    }
 }

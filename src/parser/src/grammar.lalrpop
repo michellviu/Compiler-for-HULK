@@ -130,8 +130,8 @@ ElseBranch: (tokens::Keyword, ast::Expression) = {
 
 LetExpression: ast::Expression = {
     <k: Let> <a:AssignmentList> <i:In> <e:Expression> =>
-        ast::Expression::new_atom(
-            ast::Atom::new_let_expression(k, a, i, ast::Atom::new_grouped_expression(e))
+        ast::Expression::new_letin(
+            ast::LetIn::new(k, a, i, e)
         ),
 };
 
