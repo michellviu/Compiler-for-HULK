@@ -1,8 +1,13 @@
 use parser::grammar::ProgramParser;
-use parser::visitor::AstPrinterVisitor::AstPrinterVisitor;
+use parser::visitor::ast_printer_visitor::AstPrinterVisitor;
+use parser::visitor::LLVMGenerator;
 use parser::visitor::Visitable;
+use std::env;
+use std::fs;
+use std::fs::File;
+use std::io::Write;
 
-fn strip_comments(source: &str) -> Result<String, String> {
+fn _strip_comments(source: &str) -> Result<String, String> {
     let mut result = String::with_capacity(source.len());
     let mut chars = source.chars().peekable();
     let mut in_multiline_comment = false;
@@ -81,12 +86,40 @@ fn strip_comments(source: &str) -> Result<String, String> {
 }
 
 fn main() {
-    let expr = ProgramParser::new()
-        .parse(" if (true) print (true); else print(false);;
-    
 
-")
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        eprintln!("Uso: {} <script.hulk>", args[0]);
+        std::process::exit(1);
+    }
+
+    let filename = &args[1];
+
+    let source = fs::read_to_string(filename)
+    .expect("No se pudo leer el archivo de entrada");
+
+    let expr = ProgramParser::new()
+        .parse(&source)
         .unwrap();
+
     let mut printer = AstPrinterVisitor::new();
     expr.accept(&mut printer);
+
+    let mut llvm_gen = LLVMGenerator::new();
+    expr.accept(&mut llvm_gen);
+
+    // Escribe el archivo LLVM IR en build/script.ll
+
+    let mut file = File::create("build/script.ll").unwrap();
+
+    for line in LLVMGenerator::llvm_header() {
+        writeln!(file, "{}", line).unwrap();
+    }
+    for line in llvm_gen.code {
+        writeln!(file, "  {}", line).unwrap();
+    }
+    for line in LLVMGenerator::llvm_footer() {
+        writeln!(file, "{}", line).unwrap();
+    }
 }

@@ -35,16 +35,17 @@ impl Visitor for AstPrinterVisitor {
         match expr {
             ast::Expression::BinaryOp(binop) => binop.accept(self),
             ast::Expression::Atom(atom) => atom.accept(self),
-            ast::Expression::Print(expr, pos) => self.visit_print(expr, pos),
+            ast::Expression::Print(expr, _pos) => self.visit_print(expr),
             ast::Expression::While(cond, body) => self.visit_while(cond, body),
             ast::Expression::IfElse(ifelse) => ifelse.accept(self), // ✅ ESTA LÍNEA FALTABA
+            ast::Expression::LetIn(letin) => letin.accept(self),
         }
     }
 
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
         use crate::ast::atoms::atom::Atom::*;
         match atom {
-            LetIn(letin) => letin.accept(self),
+            // LetIn(letin) => letin.accept(self),
             Block(block) => block.accept(self),
             Group(expr) => {
                 println!("{}Group", self.pad());
@@ -63,7 +64,7 @@ impl Visitor for AstPrinterVisitor {
         binop.right.accept(self);
         self.indent -= 1;
     }
-    fn visit_letin(&mut self, letin: &ast::atoms::letin::LetIn) {
+    fn visit_letin(&mut self, letin: &ast::expressions::letin::LetIn) {
         println!("{}LetIn", self.pad());
         self.indent += 1;
         for assign in &letin.bindings {
@@ -85,7 +86,7 @@ impl Visitor for AstPrinterVisitor {
         ifelse.then_branch.accept(self);
         self.indent -= 1;
 
-        for (elif_kw, cond, branch) in &ifelse.elif_branches {
+        for (_elif_kw, cond, branch) in &ifelse.elif_branches {
             println!("{}Elif:", self.pad());
             self.indent += 1;
             cond.accept(self);
@@ -103,7 +104,7 @@ impl Visitor for AstPrinterVisitor {
         self.indent -= 1;
     }
 
-    fn visit_assignment(&mut self, assign: &ast::atoms::letin::Assignment) {
+    fn visit_assignment(&mut self, assign: &ast::expressions::letin::Assignment) {
         println!(
             "{}Assignment: {} {}",
             self.pad(),
@@ -126,8 +127,8 @@ impl Visitor for AstPrinterVisitor {
     fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
         println!("{}Identifier: {}", self.pad(), identifier);
     }
-    fn visit_print(&mut self, expr: &ast::Expression, pos: &tokens::Position) {
-        println!("{}Print (pos: {}-{})", self.pad(), pos.start, pos.end);
+    fn visit_print(&mut self, expr: &ast::Expression) {
+        println!("{}Print", self.pad());
         self.indent += 1;
         expr.accept(self);
         self.indent -= 1;

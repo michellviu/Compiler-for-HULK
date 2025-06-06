@@ -1,7 +1,6 @@
 use crate::tokens::*;
 use crate::BinOp;
 use crate::Expression;
-use crate::Atom;
 use super::super::Visitable;
 use super::super::Visitor;
 
@@ -33,12 +32,12 @@ pub struct LetIn {
     pub let_token: Keyword,
     pub bindings: Vec<Assignment>,
     pub in_token: Keyword,
-    pub body: Box<Atom>,
+    pub body: Box<Expression>,
 }
 
 impl LetIn {
     
-    pub fn new(let_token:Keyword, bindings: Vec<Assignment>,in_token:Keyword, body: Atom) -> Self {
+    pub fn new(let_token:Keyword, bindings: Vec<Assignment>,in_token:Keyword, body: Expression) -> Self {
         LetIn {
             let_token,
             bindings,

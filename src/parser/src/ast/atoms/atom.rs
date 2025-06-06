@@ -1,11 +1,10 @@
 use super::super::*;
-use super::letin::Assignment;
+// use super::letin::Assignment;
 use super::*;
 use crate::tokens::*;
 #[derive(Debug)]
 pub enum Atom{
 
-    LetIn(LetIn),
     Block(Box<Block>),
     Group(Box<Expression>),
     NumberLiteral(Literal),
@@ -42,14 +41,14 @@ impl Atom {
         })
     }
 
-    pub fn new_let_expression(
-        let_token: Keyword,
-        assignments: Vec<Assignment>,
-        in_token: Keyword,
-        expression: Atom,
-    ) -> Self {
-        Atom::LetIn(LetIn::new(let_token, assignments, in_token, expression))
-    }
+    // pub fn new_let_expression(
+    //     let_token: Keyword,
+    //     assignments: Vec<Assignment>,
+    //     in_token: Keyword,
+    //     expression: Atom,
+    // ) -> Self {
+    //     Atom::LetIn(LetIn::new(let_token, assignments, in_token, expression))
+    // }
 
     pub fn new_block(
         open_brace: GroupingOperator,
@@ -69,7 +68,7 @@ impl Atom {
 impl Visitable for Atom {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
         match self {
-            Atom::LetIn(letin) => visitor.visit_letin(letin),
+            // Atom::LetIn(letin) => visitor.visit_letin(letin),
             Atom::Block(block) => visitor.visit_block(block),
             Atom::Group(expr) => visitor.visit_expression(expr),
             Atom::NumberLiteral(literal) => visitor.visit_literal(literal),
