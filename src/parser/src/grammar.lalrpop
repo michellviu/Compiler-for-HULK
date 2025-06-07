@@ -9,9 +9,9 @@ pub Program: ast::Program = {
     <list:ExpressionList> => ast::Program::new(list),
 };
 
-pub Block: ast::Atom = {
+pub Block: ast::Expression = {
     <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
-        ast::Atom::new_block(o, e, c)
+        ast::Expression::new_block(ast::Block::new(o,e,c))
     },
 };
 
@@ -42,6 +42,8 @@ pub Expression: ast::Expression = {
     LetExpression,
     PrintExpression,
     Addition,
+    Block,
+    GroupedExpression,
 };
 
 WhileExpression: ast::Expression = {
@@ -84,8 +86,6 @@ pub Atom: ast::Atom = {
     <b:BoolLiteral> => ast::Atom::BooleanLiteral(b),
     <s:StrLiteral> => ast::Atom::StringLiteral(s),
     <i:Identifier> => ast::Atom::Variable(i),
-    GroupedExpression,
-    Block,
 };
 
 TerminatedExpression: ast::Expression = {
@@ -153,8 +153,8 @@ AssignmentList: Vec<ast::Assignment> = {
     <a:Assignment> => vec![a],
 };
 
-GroupedExpression: ast::Atom = {
-     "(" <e: Expression> ")" => ast::Atom::new_grouped_expression(e),
+GroupedExpression: ast::Expression = {
+     <op:OpenParen> <e: Expression> <cp:CloseParen> => ast::Expression::new_grouped_expression(ast::Group::new(op,e,cp)),
 };
 
 OpenBrace: tokens::GroupingOperator = {
@@ -163,6 +163,14 @@ OpenBrace: tokens::GroupingOperator = {
 
 CloseBrace: tokens::GroupingOperator = {
     <s: @L> "}" <e: @R> => tokens::GroupingOperator::CloseBrace(tokens::Position::new(s, e)),
+};
+
+OpenParen: tokens::GroupingOperator = {
+    <s: @L> "(" <e: @R> => tokens::GroupingOperator::OpenParen(tokens::Position::new(s, e)),
+};
+
+CloseParen: tokens::GroupingOperator = {
+    <s: @L> ")" <e: @R> => tokens::GroupingOperator::CloseParen(tokens::Position::new(s, e)),
 };
 
 Let: tokens::Keyword = {

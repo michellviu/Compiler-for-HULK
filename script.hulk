@@ -1,1 +1,7 @@
-print(5);
+let x=3 in print(2*x);
+if(true)
+print(x);
+else
+{
+    print(y);
+};;

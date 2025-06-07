@@ -13,6 +13,8 @@ pub enum Expression {
     LetIn(Box<letin::LetIn>),
     Print(Box<Expression>, tokens::Position),
     While(Box<whilee::While>),
+    Block(Box<block::Block>),
+    Group(Box<group::Group>),
 }
 
 impl Expression {
@@ -32,12 +34,20 @@ impl Expression {
         Expression::Print(Box::new(expr), pos)
     }
 
-    pub fn new_while(whilee:While) -> Self {
+    pub fn new_while(whilee: While) -> Self {
         Expression::While(Box::new(whilee))
     }
 
     pub fn new_letin(letin: letin::LetIn) -> Self {
         Expression::LetIn(Box::new(letin))
+    }
+
+    pub fn new_block(block: Block) -> Self {
+        Expression::Block(Box::new(block))
+    }
+
+    pub fn new_grouped_expression(group: Group) -> Self {
+        Expression::Group(Box::new(group))
     }
 }
 
@@ -50,6 +60,8 @@ impl Visitable for Expression {
             Expression::Print(expr, _pos) => visitor.visit_print(expr),
             Expression::While(whilee) => whilee.accept(visitor),
             Expression::LetIn(letin) => letin.accept(visitor),
+            Expression::Block(block) => block.accept(visitor),
+            Expression::Group(group) => group.accept(visitor)
         }
     }
 }
