@@ -45,8 +45,8 @@ pub Expression: ast::Expression = {
 };
 
 WhileExpression: ast::Expression = {
-    "while" "(" <cond:Expression> ")" <body:Expression> =>
-        ast::Expression::new_while(cond, body),
+    <tk:While> "(" <cond:Expression> ")" <body:Expression> =>
+        ast::Expression::new_while(ast::While::new(tk,cond,body)),
 };
 
 PrintExpression: ast::Expression = {
@@ -168,6 +168,10 @@ CloseBrace: tokens::GroupingOperator = {
 Let: tokens::Keyword = {
     <s: @L> "let" <e: @R> => tokens::Keyword::Let(tokens::Position::new(s, e)),
 };
+
+While: tokens::Keyword = {
+    <s:@L> "while" <e:@R> => tokens::Keyword::While(tokens::Position::new(s,e)),
+}
 
 In: tokens::Keyword = {
     <s: @L> "in" <e: @R> => tokens::Keyword::In(tokens::Position::new(s, e)),

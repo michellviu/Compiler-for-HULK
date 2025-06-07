@@ -1,4 +1,4 @@
-use crate::Visitable;
+use crate::{whilee, Visitable};
 use crate::ast::atoms::atom::Atom;
 use crate::ast::expressions::binoperation::BinaryOp;
 use crate::ast::expressions::expressions::Expression;
@@ -10,7 +10,7 @@ pub struct LLVMGenerator {
     pub code: Vec<String>,
     pub temp_count: usize,
     pub last_temp: String,
-    pub string_globals: Vec<String>, // <-- Añade esto
+    pub string_globals: Vec<String>,
 }
 
 impl LLVMGenerator {
@@ -55,8 +55,9 @@ impl Visitor for LLVMGenerator {
     }
     fn visit_expression(&mut self, expr: &Expression) {
         match expr {
-            Expression::BinaryOp(binop) => self.visit_binary_op(binop),
+            Expression::BinaryOp(binop) => binop.accept(self),
             Expression::Atom(atom) => atom.accept(self),
+            Expression::Print(exp,_pos )=> self.visit_print(exp),
             _ => {}
         }
     }
@@ -64,8 +65,15 @@ impl Visitor for LLVMGenerator {
         match atom {
             Atom::NumberLiteral(lit) => self.visit_literal(lit),
             Atom::BooleanLiteral(lit) => self.visit_literal(lit),
+            Atom::StringLiteral(lit) => self.visit_literal(lit),
+            Atom::Variable(identifier) => {
+                let temp = self.next_temp();
+                self.code.push(format!("{temp} = load i32, i32* {identifier}", temp = temp, identifier = identifier.name));
+                self.last_temp = temp;
+            }
+            Atom::Block(block) => block.accept(self),
+            Atom::Group(expr) => expr.accept(self),
 
-            _ => {}
         }
     }
     fn visit_binary_op(&mut self, binop: &BinaryOp) {
@@ -182,6 +190,6 @@ impl Visitor for LLVMGenerator {
             _ => {}
         }
     }
-    fn visit_while(&mut self, _cond: &Expression, _body: &Expression) {}
+    fn visit_while(&mut self,_whilee: &whilee::While) {}
     fn visit_ifelse(&mut self, _ifelse: &crate::ast::expressions::ifelse::IfElse) {}
 }

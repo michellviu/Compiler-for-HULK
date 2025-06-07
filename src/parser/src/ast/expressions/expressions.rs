@@ -10,9 +10,9 @@ pub enum Expression {
     BinaryOp(BinaryOp),
     Atom(Box<Atom>),
     IfElse(Box<ifelse::IfElse>),
-    LetIn(Box<letin::LetIn>), // ← esta línea nueva
-    Print(Box<Expression>, tokens::Position), // Nueva variante
-    While(Box<Expression>, Box<Expression>),  // ← esta línea nueva
+    LetIn(Box<letin::LetIn>),
+    Print(Box<Expression>, tokens::Position),
+    While(Box<whilee::While>),
 }
 
 impl Expression {
@@ -32,8 +32,8 @@ impl Expression {
         Expression::Print(Box::new(expr), pos)
     }
 
-    pub fn new_while(cond: Expression, body: Expression) -> Self {
-        Expression::While(Box::new(cond), Box::new(body))
+    pub fn new_while(whilee:While) -> Self {
+        Expression::While(Box::new(whilee))
     }
 
     pub fn new_letin(letin: letin::LetIn) -> Self {
@@ -48,8 +48,8 @@ impl Visitable for Expression {
             Expression::Atom(atom) => atom.accept(visitor),
             Expression::IfElse(ifelse) => ifelse.accept(visitor),
             Expression::Print(expr, _pos) => visitor.visit_print(expr),
-            Expression::While(cond, body) => visitor.visit_while(cond, body), // ← nuevo
-            Expression::LetIn(letin) => letin.accept(visitor), // ← nueva variante
+            Expression::While(whilee) => whilee.accept(visitor),
+            Expression::LetIn(letin) => letin.accept(visitor),
         }
     }
 }
