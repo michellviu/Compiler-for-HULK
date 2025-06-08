@@ -1,16 +1,16 @@
-use crate::Visitable;
 use crate::ast::atoms::atom::Atom;
 use crate::ast::expressions::binoperation::BinaryOp;
 use crate::ast::expressions::expressions::Expression;
 use crate::ast::visitor::visitor::Visitor;
 use crate::ast::{ExpressionList, Program};
 use crate::tokens::Literal;
+use crate::{Visitable, whilee};
 
 pub struct LLVMGenerator {
     pub code: Vec<String>,
     pub temp_count: usize,
     pub last_temp: String,
-    pub string_globals: Vec<String>, // <-- Añade esto
+    pub string_globals: Vec<String>,
 }
 
 impl LLVMGenerator {
@@ -55,8 +55,9 @@ impl Visitor for LLVMGenerator {
     }
     fn visit_expression(&mut self, expr: &Expression) {
         match expr {
-            Expression::BinaryOp(binop) => self.visit_binary_op(binop),
+            Expression::BinaryOp(binop) => binop.accept(self),
             Expression::Atom(atom) => atom.accept(self),
+            Expression::Print(exp, _pos) => self.visit_print(exp),
             _ => {}
         }
     }
@@ -64,8 +65,16 @@ impl Visitor for LLVMGenerator {
         match atom {
             Atom::NumberLiteral(lit) => self.visit_literal(lit),
             Atom::BooleanLiteral(lit) => self.visit_literal(lit),
-
-            _ => {}
+            Atom::StringLiteral(lit) => self.visit_literal(lit),
+            Atom::Variable(identifier) => {
+                let temp = self.next_temp();
+                self.code.push(format!(
+                    "{temp} = load i32, i32* {identifier}",
+                    temp = temp,
+                    identifier = identifier.name
+                ));
+                self.last_temp = temp;
+            }
         }
     }
     fn visit_binary_op(&mut self, binop: &BinaryOp) {
@@ -86,7 +95,7 @@ impl Visitor for LLVMGenerator {
     }
     fn visit_letin(&mut self, _letin: &crate::ast::expressions::letin::LetIn) {}
     fn visit_assignment(&mut self, _assign: &crate::ast::expressions::letin::Assignment) {}
-    fn visit_block(&mut self, _block: &crate::ast::atoms::block::Block) {}
+    fn visit_block(&mut self, _block: &crate::ast::expressions::block::Block) {}
     fn visit_literal(&mut self, literal: &Literal) {
         let temp = self.next_temp();
         match literal {
@@ -182,6 +191,7 @@ impl Visitor for LLVMGenerator {
             _ => {}
         }
     }
-    fn visit_while(&mut self, _cond: &Expression, _body: &Expression) {}
+    fn visit_while(&mut self, _whilee: &whilee::While) {}
     fn visit_ifelse(&mut self, _ifelse: &crate::ast::expressions::ifelse::IfElse) {}
+    fn visit_group(&mut self, _group: &crate::ast::expressions::group::Group) {}
 }

@@ -1,7 +1,10 @@
 use crate::ast;
+use crate::ast::Expression;
+use crate::group;
 use crate::tokens;
 use crate::visitor::Visitable;
 use crate::visitor::Visitor;
+use crate::whilee;
 
 pub struct AstPrinterVisitor {
     pub indent: usize,
@@ -33,24 +36,23 @@ impl Visitor for AstPrinterVisitor {
     }
     fn visit_expression(&mut self, expr: &ast::Expression) {
         match expr {
-            ast::Expression::BinaryOp(binop) => binop.accept(self),
-            ast::Expression::Atom(atom) => atom.accept(self),
-            ast::Expression::Print(expr, _pos) => self.visit_print(expr),
-            ast::Expression::While(cond, body) => self.visit_while(cond, body),
-            ast::Expression::IfElse(ifelse) => ifelse.accept(self), // ✅ ESTA LÍNEA FALTABA
-            ast::Expression::LetIn(letin) => letin.accept(self),
+            Expression::BinaryOp(binop) => binop.accept(self),
+            Expression::Atom(atom) => atom.accept(self),
+            Expression::Print(expr, _pos) => self.visit_print(expr),
+            Expression::While(whilee) => whilee.accept(self),
+            Expression::IfElse(ifelse) => ifelse.accept(self),
+            Expression::LetIn(letin) => letin.accept(self),
+            Expression::Block(block) => block.accept(self),
+            Expression::Group(expr) => {
+                println!("{}Group", self.pad());
+                expr.accept(self);
+            }
         }
     }
 
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
         use crate::ast::atoms::atom::Atom::*;
         match atom {
-            // LetIn(letin) => letin.accept(self),
-            Block(block) => block.accept(self),
-            Group(expr) => {
-                println!("{}Group", self.pad());
-                expr.accept(self);
-            }
             NumberLiteral(lit) => lit.accept(self),
             BooleanLiteral(lit) => lit.accept(self),
             StringLiteral(lit) => lit.accept(self),
@@ -115,7 +117,7 @@ impl Visitor for AstPrinterVisitor {
         assign.body.accept(self);
         self.indent -= 1;
     }
-    fn visit_block(&mut self, block: &ast::atoms::block::Block) {
+    fn visit_block(&mut self, block: &ast::expressions::block::Block) {
         println!("{}Block", self.pad());
         self.indent += 1;
         block.expression_list.accept(self);
@@ -133,16 +135,21 @@ impl Visitor for AstPrinterVisitor {
         expr.accept(self);
         self.indent -= 1;
     }
-    fn visit_while(&mut self, cond: &ast::Expression, body: &ast::Expression) {
+    fn visit_while(&mut self, whilee: &whilee::While) {
         println!("{}While", self.pad());
         self.indent += 1;
         println!("{}Condition:", self.pad());
         self.indent += 1;
-        cond.accept(self);
+        whilee.cond.accept(self);
         self.indent -= 1;
         println!("{}Body:", self.pad());
         self.indent += 1;
-        body.accept(self);
+        whilee.body.accept(self);
         self.indent -= 2;
+    }
+
+    fn visit_group(&mut self, group: &group::Group) {
+        println!("{}Group", self.pad());
+        group.expression.accept(self);
     }
 }
