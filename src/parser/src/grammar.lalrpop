@@ -16,34 +16,34 @@ pub Block: ast::Expression = {
 };
 
 pub ExpressionList: ast::ExpressionList = {
-    // Bloque vacío
-    => ast::ExpressionList::new(vec![]),
-    
-    // Un solo Expression sin punto y coma final
-    <e:Expression> => ast::ExpressionList::new(vec![e]),
-
-    // Lista de expresiones separadas por punto y coma
-    <list:NonEmptyExpressionList> => ast::ExpressionList::new(list),
-};
-
-// Esta es la regla recursiva para múltiples expresiones con `;`
-NonEmptyExpressionList: Vec<Expression> = {
-    <e:Expression> ";" <rest:NonEmptyExpressionList> => {
+    <e:Expression> <rest:ExpressionList> => {
         let mut v = vec![e];
-        v.extend(rest);
-        v
+        v.extend(rest.expressions);
+        ast::ExpressionList::new(v)
     },
-    <e:Expression> ";" => vec![e], // Última expresión seguida de ;
+    <e:Expression> => ast::ExpressionList::new(vec![e]),
+    // O vacío si lo deseas:
+    // => ast::ExpressionList::new(vec![]),
 };
 
 pub Expression: ast::Expression = {
-    IfElseExpression,
-    WhileExpression,
+    <e:SemiColonExpression> ";" => e,
+    <e:NoSemiColonExpression> => e,
+};
+
+SemiColonExpression: ast::Expression = {
     LetExpression,
     PrintExpression,
+    // Agrega aquí otras que requieran ';'
+};
+
+NoSemiColonExpression: ast::Expression = {
+    IfElseExpression,
+    WhileExpression,
     Addition,
     Block,
     GroupedExpression,
+    // Agrega aquí otras que no requieran ';'
 };
 
 WhileExpression: ast::Expression = {
@@ -93,7 +93,7 @@ TerminatedExpression: ast::Expression = {
 };
 
 IfElseExpression: ast::Expression = {
-    <if_kw:If> "(" <cond:Expression> ")" <then_branch:TerminatedExpression>
+    <if_kw:If> "(" <cond:Expression> ")" <then_branch:Expression>
     <elifs:ElifBranchesOpt> <else_branch:ElseBranch> =>
         ast::Expression::new_ifelse(ast::ifelse::IfElse::new(
             if_kw,
@@ -120,12 +120,12 @@ ElifBranches: Vec<(tokens::Keyword, ast::Expression, ast::Expression)> = {
 };
 
 ElifBranch: (tokens::Keyword, ast::Expression, ast::Expression) = {
-    <elif_kw:Elif> "(" <cond:Expression> ")" <body:TerminatedExpression> =>
+    <elif_kw:Elif> "(" <cond:Expression> ")" <body:Expression> =>
         (elif_kw, cond, body),
 };
 
 ElseBranch: (tokens::Keyword, ast::Expression) = {
-    <else_kw:Else> <body:TerminatedExpression> => (else_kw, body),
+    <else_kw:Else> <body:Expression> => (else_kw, body),
 };
 
 LetExpression: ast::Expression = {

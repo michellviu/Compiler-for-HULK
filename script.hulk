@@ -1,7 +1,8 @@
-let x=3 in print(2*x);
+let x=2 in {print(x*2+3);};
 if(true)
-print(x);
+ print(x);
 else
 {
-    print(y);
-};;
+print(y);
+}
+ 
