@@ -81,12 +81,21 @@ fn strip_comments(source: &str) -> Result<String, String> {
 }
 
 fn main() {
-    let expr = ProgramParser::new()
-        .parse(" if (true) print (true); else print(false);;
-    
+    let input = r#"
+       prin(5)
+    "#;
 
-")
-        .unwrap();
-    let mut printer = AstPrinterVisitor::new();
-    expr.accept(&mut printer);
+    match parser::parse_program(input) {
+        Ok(program) => {
+            let mut printer = AstPrinterVisitor::new();
+            program.accept(&mut printer); 
+        }
+        Err(err) => {
+            if let Some(pos) = err.position {
+                println!("Error en {}–{}: {}", pos.start, pos.end, err.message);
+            } else {
+                println!("Error: {}", err.message);
+            }
+        }
+    }
 }
