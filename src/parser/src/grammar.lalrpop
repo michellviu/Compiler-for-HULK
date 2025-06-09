@@ -41,7 +41,7 @@ SemiColonExpression: ast::Expression = {
 NoSemiColonExpression: ast::Expression = {
     IfElseExpression,
     WhileExpression,
-    Addition,
+    BooleanExpr, //!!!!!!! Addition esta incluida en BooleanExpr
     Block,
     // Agrega aquí otras que no requieran ';'
 };
@@ -233,14 +233,16 @@ BooleanExpr: ast::Expression = {
 };
 
 ComparisonExpr: ast::Expression = {
+
     <l:Addition> <op:ComparisonOp> <r:Addition> => ast::Expression::new_binary_op(l, r, op),
     Addition,
+
 };
 
-UnaryExpr: ast::Expression = {
-    <op:UnaryOp> <e:UnaryExpr> => ast::Expression::new_unary_op(op, e),
-    BooleanExpr,
-};
+// UnaryExpr: ast::Expression = {
+//     <op:UnaryOp> <e:UnaryExpr> => ast::Expression::new_unary_op(op, e),
+//     Addition,
+// };
 
 ComparisonOp: tokens::BinOp = {
     <s: @L> "==" <e: @R> => tokens::BinOp::EqualEqual(tokens::Position::new(s, e)),
@@ -252,8 +254,8 @@ ComparisonOp: tokens::BinOp = {
 };
 
 LogicalOp: tokens::BinOp = {
-    <s: @L> "&&" <e: @R> => tokens::BinOp::AndAnd(tokens::Position::new(s, e)),
-    <s: @L> "||" <e: @R> => tokens::BinOp::OrOr(tokens::Position::new(s, e)),
+    <s: @L> "&" <e: @R> => tokens::BinOp::AndAnd(tokens::Position::new(s, e)),
+    <s: @L> "|" <e: @R> => tokens::BinOp::OrOr(tokens::Position::new(s, e)),
 };
 
 UnaryOp: tokens::UnaryOp = {

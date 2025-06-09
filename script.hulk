@@ -1,16 +1,14 @@
-let a = 0,b=1 in
+let a = 4 in
+    if (a % 2 == 0) {
+        print(a);
+        print("Even");
+    }
+    elif(a>=4 | true)
     {
-        print(b);
         print(a);
-        a:=a+3;
+    }
+    elif(false)
+    {
         print(a);
-    };
-
-{
-    let x=3 in print(x);;
-}
-
-if(false)
-print(2);
-else
-print(3);
+    }
+    else print("Odd");;
