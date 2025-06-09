@@ -86,7 +86,6 @@ fn _strip_comments(source: &str) -> Result<String, String> {
 }
 
 fn main() {
-
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
@@ -97,29 +96,34 @@ fn main() {
     let filename = &args[1];
 
     let source = fs::read_to_string(filename)
-    .expect("No se pudo leer el archivo de entrada");
+        .expect("No se pudo leer el archivo de entrada");
 
-    let expr = ProgramParser::new()
-        .parse(&source)
-        .unwrap();
+    match parser::parse_program(&source) {
+        Ok(program) => {
+            let mut printer = AstPrinterVisitor::new();
+            program.accept(&mut printer);
 
-    let mut printer = AstPrinterVisitor::new();
-    expr.accept(&mut printer);
+            let mut llvm_gen = LLVMGenerator::new();
+            program.accept(&mut llvm_gen);
 
-    let mut llvm_gen = LLVMGenerator::new();
-    expr.accept(&mut llvm_gen);
-
-    // Escribe el archivo LLVM IR en build/script.ll
-
-    let mut file = File::create("build/script.ll").unwrap();
-
-    for line in LLVMGenerator::llvm_header() {
-        writeln!(file, "{}", line).unwrap();
-    }
-    for line in llvm_gen.code {
-        writeln!(file, "  {}", line).unwrap();
-    }
-    for line in LLVMGenerator::llvm_footer() {
-        writeln!(file, "{}", line).unwrap();
+            // Escribir LLVM IR en archivo
+            let mut file = File::create("build/script.ll").unwrap();
+            for line in LLVMGenerator::llvm_header() {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in llvm_gen.code {
+                writeln!(file, "  {}", line).unwrap();
+            }
+            for line in LLVMGenerator::llvm_footer() {
+                writeln!(file, "{}", line).unwrap();
+            }
+        }
+        Err(err) => {
+            if let Some(pos) = err.position {
+                println!("Error en {}–{}: {}", pos.start, pos.end, err.message);
+            } else {
+                println!("Error: {}", err.message);
+            }
+        }
     }
 }

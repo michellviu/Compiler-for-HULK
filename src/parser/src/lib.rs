@@ -7,4 +7,8 @@ pub use ast::*;
 pub mod tokens;
 pub use tokens::*;
 
+pub mod errors;
+pub use errors::{ParseError, parse_program};
+
 pub use grammar::ProgramParser;
+
