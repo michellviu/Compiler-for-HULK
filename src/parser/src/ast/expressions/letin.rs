@@ -14,7 +14,6 @@ pub struct Assignment {
 
 impl Assignment {
     pub fn new(variable: Atom, op: BinOp, body: Expression) -> Self {
-        println!(" Entro Assignment::new: {:?}", variable);
         match variable {
             
             Atom::Variable(identifier) => Assignment {

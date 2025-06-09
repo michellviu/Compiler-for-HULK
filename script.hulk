@@ -1,4 +1,10 @@
-let x=2,y=let z=4 in z+1; in print(x*(2+y));;
+let a = 0,b=1 in
+    {
+        print(b);
+        print(a);
+        a:=a+3;
+        print(a);
+    };
 
 {
     let x=3 in print(x);;

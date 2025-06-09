@@ -4,7 +4,7 @@ use crate::ast::expressions::expressions::Expression;
 use crate::ast::visitor::visitor::Visitor;
 use crate::ast::{ExpressionList, Program};
 use crate::tokens::Literal;
-use crate::{Visitable, group, identifier, whilee};
+use crate::{Visitable, whilee};
 use std::collections::HashMap;
 
 pub struct LLVMGenerator {
@@ -102,20 +102,44 @@ impl Visitor for LLVMGenerator {
     }
 
     fn visit_binary_op(&mut self, binop: &BinaryOp) {
-        binop.left.accept(self);
-        let left = self.last_temp.clone();
-        binop.right.accept(self);
-        let right = self.last_temp.clone();
-        let temp = self.next_temp();
-        let op = match &binop.operator {
-            crate::tokens::BinOp::Plus(_) => "add",
-            crate::tokens::BinOp::Minus(_) => "sub",
-            crate::tokens::BinOp::Mul(_) => "mul",
-            crate::tokens::BinOp::Div(_) => "sdiv",
-            _ => "add", // default
-        };
-        self.code.push(format!("{temp} = {op} i32 {left}, {right}"));
-        self.last_temp = temp;
+        use crate::tokens::BinOp;
+        match &binop.operator {
+            BinOp::Assign(_) => {
+                // Lado izquierdo debe ser una variable
+                if let Expression::Atom(atom) = &*binop.left {
+                    if let Atom::Variable(identifier) = &**atom {
+                        let ptr = self
+                            .lookup_var(&identifier.name)
+                            .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
+                            .clone();
+                        binop.right.accept(self);
+                        let value = self.last_temp.clone();
+                        self.code.push(format!("store i32 {}, i32* {}", value, ptr));
+                        self.last_temp = value; // := devuelve el valor asignado
+                        return;
+                    }
+                }
+                panic!("Left side of := must be a variable");
+            }
+            // ...otros operadores...
+            _ => {
+                binop.left.accept(self);
+                let left = self.last_temp.clone();
+                binop.right.accept(self);
+                let right = self.last_temp.clone();
+                let temp = self.next_temp();
+                let op = match &binop.operator {
+                    BinOp::Plus(_) => "add",
+                    BinOp::Minus(_) => "sub",
+                    BinOp::Mul(_) => "mul",
+                    BinOp::Div(_) => "sdiv",
+                    // ...otros operadores...
+                    _ => "add",
+                };
+                self.code.push(format!("{temp} = {op} i32 {left}, {right}"));
+                self.last_temp = temp;
+            }
+        }
     }
 
     fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
@@ -282,5 +306,23 @@ impl Visitor for LLVMGenerator {
 
     fn visit_group(&mut self, group: &crate::ast::atoms::group::Group) {
         group.expression.accept(self);
+    }
+
+    fn visit_unary_op(&mut self, unary_op: &crate::ast::expressions::unaryoperation::UnaryOp) {
+        unary_op.expr.accept(self);
+        let expr_temp = self.last_temp.clone();
+        let temp = self.next_temp();
+        match unary_op.op {
+            crate::tokens::UnaryOp::Minus(_) => {
+                self.code.push(format!("{temp} = sub i32 0, {expr}", temp = temp, expr = expr_temp));
+            }
+            crate::tokens::UnaryOp::Not(_) => {
+                self.code.push(format!("{temp} = xor i1 {expr}, true", temp = temp, expr = expr_temp));
+            }
+            _ => {
+                panic!("Unsupported unary operation: {:?}", unary_op.op);
+            }
+        }
+        self.last_temp = temp;
     }
 }
