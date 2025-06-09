@@ -1,8 +1,10 @@
-let x=2 in {print(x*2+3);};
-if(true)
- print(x);
-else
+let x=2,y=let z=4 in z+1; in print(x*(2+y));;
+
 {
-print(y);
+    let x=3 in print(x);;
 }
- 
+
+if(false)
+print(2);
+else
+print(3);

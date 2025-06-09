@@ -1,5 +1,6 @@
 use crate::ast;
 use crate::ast::Expression;
+use crate::ast::atoms::atom::Atom;
 use crate::group;
 use crate::tokens;
 use crate::visitor::Visitable;
@@ -43,10 +44,6 @@ impl Visitor for AstPrinterVisitor {
             Expression::IfElse(ifelse) => ifelse.accept(self),
             Expression::LetIn(letin) => letin.accept(self),
             Expression::Block(block) => block.accept(self),
-            Expression::Group(expr) => {
-                println!("{}Group", self.pad());
-                expr.accept(self);
-            }
         }
     }
 
@@ -56,7 +53,11 @@ impl Visitor for AstPrinterVisitor {
             NumberLiteral(lit) => lit.accept(self),
             BooleanLiteral(lit) => lit.accept(self),
             StringLiteral(lit) => lit.accept(self),
-            Variable(id) => id.accept(self),
+            Variable(id) => {
+                println!("{}Variable: {}", self.pad(), id.name);
+            }
+            Group(expr) => expr.accept(self),
+                
         }
     }
     fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {
@@ -105,14 +106,12 @@ impl Visitor for AstPrinterVisitor {
 
         self.indent -= 1;
     }
-
     fn visit_assignment(&mut self, assign: &ast::expressions::letin::Assignment) {
-        println!(
-            "{}Assignment: {} {}",
-            self.pad(),
-            assign.identifier,
-            assign.op
-        );
+        let var_name = match &assign.variable {
+            Atom::Variable(identifier) => &identifier.name,
+            _ => panic!("Expected variable in assignment"),
+        };
+        println!("{}Assignment: {} {}", self.pad(), var_name, assign.op);
         self.indent += 1;
         assign.body.accept(self);
         self.indent -= 1;
@@ -124,7 +123,12 @@ impl Visitor for AstPrinterVisitor {
         self.indent -= 1;
     }
     fn visit_literal(&mut self, literal: &tokens::Literal) {
-        println!("{}Literal: {}", self.pad(), literal);
+        let type_str = match literal {
+            tokens::Literal::Number(_, _) => "Number",
+            tokens::Literal::Str(_, _) => "String",
+            tokens::Literal::Bool(_, _) => "Bool",
+        };
+        println!("{}{}Literal: {}", self.pad(), type_str, literal);
     }
     fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
         println!("{}Identifier: {}", self.pad(), identifier);

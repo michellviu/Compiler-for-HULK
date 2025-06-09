@@ -42,7 +42,6 @@ NoSemiColonExpression: ast::Expression = {
     WhileExpression,
     Addition,
     Block,
-    GroupedExpression,
     // Agrega aquí otras que no requieran ';'
 };
 
@@ -85,7 +84,8 @@ pub Atom: ast::Atom = {
     <n:NumLiteral> => ast::Atom::NumberLiteral(n),
     <b:BoolLiteral> => ast::Atom::BooleanLiteral(b),
     <s:StrLiteral> => ast::Atom::StringLiteral(s),
-    <i:Identifier> => ast::Atom::Variable(i),
+    <v:Variable> => v,
+    <g:GroupedExpression> => g,
 };
 
 TerminatedExpression: ast::Expression = {
@@ -136,7 +136,7 @@ LetExpression: ast::Expression = {
 };
 
 Assignment: ast::Assignment = {
-    <id:Identifier> <o:EqualOperator> <e:Expression> =>
+    <id:Variable> <o:EqualOperator> <e:Expression> =>
         ast::Assignment::new(id, o, e),
 };
 
@@ -153,8 +153,8 @@ AssignmentList: Vec<ast::Assignment> = {
     <a:Assignment> => vec![a],
 };
 
-GroupedExpression: ast::Expression = {
-     <op:OpenParen> <e: Expression> <cp:CloseParen> => ast::Expression::new_grouped_expression(ast::Group::new(op,e,cp)),
+GroupedExpression: ast::Atom = {
+     <op:OpenParen> <e: Expression> <cp:CloseParen> => ast::Atom::new_grouped_expression(ast::Group::new(op,e,cp)),
 };
 
 OpenBrace: tokens::GroupingOperator = {
@@ -202,6 +202,10 @@ StrLiteral: tokens::Literal = {
         v.to_string(),
         tokens::Position::new(s, e)
     ),
+};
+
+Variable: ast::Atom = {
+    <id:Identifier> => ast::Atom::Variable(id),
 };
 
 Identifier: tokens::Identifier = {

@@ -14,7 +14,7 @@ pub enum Expression {
     Print(Box<Expression>, tokens::Position),
     While(Box<whilee::While>),
     Block(Box<block::Block>),
-    Group(Box<group::Group>),
+    
 }
 
 impl Expression {
@@ -46,9 +46,7 @@ impl Expression {
         Expression::Block(Box::new(block))
     }
 
-    pub fn new_grouped_expression(group: Group) -> Self {
-        Expression::Group(Box::new(group))
-    }
+
 }
 
 impl Visitable for Expression {
@@ -61,7 +59,7 @@ impl Visitable for Expression {
             Expression::While(whilee) => whilee.accept(visitor),
             Expression::LetIn(letin) => letin.accept(visitor),
             Expression::Block(block) => block.accept(visitor),
-            Expression::Group(group) => group.accept(visitor)
+            
         }
     }
 }
