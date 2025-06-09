@@ -56,10 +56,8 @@ impl Visitor for AstPrinterVisitor {
             Variable(id) => {
                 println!("{}Variable: {}", self.pad(), id.name);
             }
-            Group(expr) => {
-                println!("{}Group", self.pad());
-                expr.accept(self);
-            }
+            Group(expr) => expr.accept(self),
+                
         }
     }
     fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {

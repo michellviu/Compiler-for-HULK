@@ -83,7 +83,8 @@ impl Visitor for LLVMGenerator {
             Atom::BooleanLiteral(lit) => self.visit_literal(lit),
             Atom::StringLiteral(lit) => self.visit_literal(lit),
             Atom::Variable(identifier) => {
-                let ptr = self.lookup_var(&identifier.name)
+                let ptr = self
+                    .lookup_var(&identifier.name)
                     .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
                     .clone();
                 let temp = self.next_temp();
@@ -125,15 +126,17 @@ impl Visitor for LLVMGenerator {
                 Atom::Variable(identifier) => &identifier.name,
                 _ => panic!("Expected variable in assignment"),
             };
-            self.code.push(format!("%{} = alloca i32", var_name));
+            let scope_depth = self.env_stack.len();
+            let unique_var = format!("{}_{}", var_name, scope_depth);
+            self.code.push(format!("%{} = alloca i32", unique_var));
             assign.body.accept(self);
             self.code
-                .push(format!("store i32 {}, i32* %{}", self.last_temp, var_name));
+                .push(format!("store i32 {}, i32* %{}", self.last_temp, unique_var));
             // Guarda el puntero en el scope actual
             self.env_stack
                 .last_mut()
                 .unwrap()
-                .insert(var_name.clone(), format!("%{}", var_name));
+                .insert(var_name.clone(), format!("%{}", unique_var));
         }
 
         letin.body.accept(self);
@@ -143,7 +146,13 @@ impl Visitor for LLVMGenerator {
 
     fn visit_assignment(&mut self, _assign: &crate::ast::expressions::letin::Assignment) {}
 
-    fn visit_block(&mut self, _block: &crate::ast::expressions::block::Block) {}
+    fn visit_block(&mut self, block: &crate::ast::expressions::block::Block) {
+        self.env_stack.push(HashMap::new()); // Nuevo scope
+
+        block.expression_list.accept(self);
+
+        self.env_stack.pop(); // Sale del scope
+    }
 
     fn visit_literal(&mut self, literal: &Literal) {
         let temp = self.next_temp();
