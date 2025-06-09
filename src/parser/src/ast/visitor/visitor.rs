@@ -15,7 +15,7 @@ pub trait Visitor {
     fn visit_print(&mut self, expr: &ast::Expression);
     fn visit_while(&mut self, whilee: &whilee::While);
     fn visit_ifelse(&mut self, ifelse: &ast::expressions::ifelse::IfElse);
-    fn visit_group(&mut self, group: &ast::expressions::group::Group);
+    fn visit_group(&mut self, group: &ast::atoms::group::Group);
 }
 
 pub trait Visitable {
