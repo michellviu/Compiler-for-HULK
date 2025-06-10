@@ -15,6 +15,7 @@ pub enum Expression {
     Print(Box<Expression>, tokens::Position),
     While(Box<whilee::While>),
     Block(Box<block::Block>),
+    UnaryOp(UnaryOp),
     Range(Box<Expression>, Box<Expression>),
     
 }
@@ -32,6 +33,11 @@ impl Expression {
 
     pub fn new_binary_op(left: Expression, right: Expression, operator: BinOp) -> Self {
         Expression::BinaryOp(BinaryOp::new(left, right, operator))
+    }
+
+    pub fn new_unary_op(op: tokens::UnaryOp, expr: Expression) -> Self
+    {
+        Expression::UnaryOp(UnaryOp::new(op, expr))
     }
 
     pub fn new_atom(atom: Atom) -> Self {
@@ -67,6 +73,7 @@ impl Visitable for Expression {
             Expression::While(whilee) => whilee.accept(visitor),
             Expression::LetIn(letin) => letin.accept(visitor),
             Expression::Block(block) => block.accept(visitor),
+            Expression::UnaryOp(unoperator) => unoperator.accept(visitor),
             Expression::For(forr) => forr.accept(visitor),
             Expression::Range(start, end) => {
                 start.accept(visitor);

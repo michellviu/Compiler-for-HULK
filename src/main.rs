@@ -1,4 +1,4 @@
-use parser::grammar::ProgramParser;
+// use parser::grammar::ProgramParser;
 use parser::visitor::ast_printer_visitor::AstPrinterVisitor;
 use parser::visitor::LLVMGenerator;
 use parser::visitor::Visitable;
@@ -95,8 +95,7 @@ fn main() {
 
     let filename = &args[1];
 
-    let source = fs::read_to_string(filename)
-        .expect("No se pudo leer el archivo de entrada");
+    let source = fs::read_to_string(filename).expect("No se pudo leer el archivo de entrada");
 
     match parser::parse_program(&source) {
         Ok(program) => {
@@ -108,7 +107,20 @@ fn main() {
 
             // Escribir LLVM IR en archivo
             let mut file = File::create("build/script.ll").unwrap();
-            for line in LLVMGenerator::llvm_header() {
+            let header = LLVMGenerator::llvm_header();
+            let (before_main, after_main) = header.split_at(
+                header
+                    .iter()
+                    .position(|l| l.contains("define i32 @main()"))
+                    .unwrap(),
+            );
+            for line in before_main {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in llvm_gen.string_globals {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in after_main {
                 writeln!(file, "{}", line).unwrap();
             }
             for line in llvm_gen.code {

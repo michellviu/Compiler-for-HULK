@@ -17,6 +17,7 @@ pub trait Visitor {
     fn visit_while(&mut self, whilee: &whilee::While);
     fn visit_ifelse(&mut self, ifelse: &ast::expressions::ifelse::IfElse);
     fn visit_group(&mut self, group: &ast::atoms::group::Group);
+    fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp);
     fn visit_for(&mut self, forr: &forr::For);
     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression);
 }
