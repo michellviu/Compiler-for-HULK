@@ -1,3 +1,5 @@
+use std::collections::btree_map::Range;
+
 use crate::ast;
 use crate::ast::Expression;
 use crate::ast::atoms::atom::Atom;
@@ -6,6 +8,7 @@ use crate::tokens;
 use crate::visitor::Visitable;
 use crate::visitor::Visitor;
 use crate::whilee;
+use crate::forr;
 
 pub struct AstPrinterVisitor {
     pub indent: usize,
@@ -44,9 +47,25 @@ impl Visitor for AstPrinterVisitor {
             Expression::IfElse(ifelse) => ifelse.accept(self),
             Expression::LetIn(letin) => letin.accept(self),
             Expression::Block(block) => block.accept(self),
+            Expression::For(forr) => forr.accept(self),
+            Expression::Range(start, end) => self.visit_range(start, end),
+                                               
+            }
         }
-    }
 
+
+     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
+        println!("{}Range", self.pad());
+        self.indent += 1;
+        println!("{}Start:", self.pad());
+        self.indent += 1;
+        start.accept(self);
+        self.indent -= 1;
+        println!("{}End:", self.pad());
+        self.indent += 1;
+        end.accept(self);
+        self.indent -= 2;
+    }
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
         use crate::ast::atoms::atom::Atom::*;
         match atom {
@@ -60,6 +79,23 @@ impl Visitor for AstPrinterVisitor {
                 
         }
     }
+     fn visit_for(&mut self, forr: &forr::For) {
+        println!("{}For", self.pad());
+        self.indent += 1;
+        println!("{}Var:", self.pad());
+        self.indent += 1;
+        forr.var.accept(self);
+        self.indent -= 1;
+        println!("{}Iterable:", self.pad());
+        self.indent += 1;
+        forr.iterable.accept(self);
+        self.indent -= 1;
+        println!("{}Body:", self.pad());
+        self.indent += 1;
+        forr.body.accept(self);
+        self.indent -= 2;
+    }
+
     fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {
         println!("{}BinaryOp: {}", self.pad(), binop.operator);
         self.indent += 1;

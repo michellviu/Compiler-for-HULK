@@ -1,10 +1,1 @@
-let x=2,y=let z=4 in z+1; in print(x*(2+y));;
-
-{
-    let x=3 in print(x);;
-}
-
-if(false)
-print(2)
-else
-print(3);
+for (x in range(0, 10)) let y =2 in if (true) print(y); else print(y+2);;
