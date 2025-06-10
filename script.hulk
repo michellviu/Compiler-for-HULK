@@ -1,14 +1,24 @@
-let a = 4 in
-    if (a % 2 == 0) {
-        print(a);
-        print("Even");
-    }
-    elif(a>=4 | true)
+
+let x=4 in {
+
+    if(x%2==1)
     {
-        print(a);
+        x:=print(x+1);;
+        print(true);
+        print("Hello");
+
     }
-    elif(false)
+     elif(x>=4 | true)
     {
-        print(a);
+        print(x);
     }
-    else print("Odd");;
+    else
+     print(x);
+
+    while(x<8)
+    {
+        print(x);
+        x:=x+1;
+    }
+
+};

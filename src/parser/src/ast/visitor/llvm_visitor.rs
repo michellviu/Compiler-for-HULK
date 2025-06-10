@@ -13,6 +13,8 @@ pub struct LLVMGenerator {
     pub last_temp: String,
     pub string_globals: Vec<String>,
     pub env_stack: Vec<HashMap<String, String>>,
+    pub string_sizes: HashMap<String, usize>,
+    pub string_label_count: usize,
 }
 
 impl LLVMGenerator {
@@ -23,6 +25,8 @@ impl LLVMGenerator {
             last_temp: String::new(),
             string_globals: Vec::new(),
             env_stack: vec![HashMap::new()],
+            string_sizes: HashMap::new(),
+            string_label_count: 0,
         }
     }
     fn next_temp(&mut self) -> String {
@@ -110,7 +114,9 @@ impl Visitor for LLVMGenerator {
                     if let Atom::Variable(identifier) = &**atom {
                         let ptr = self
                             .lookup_var(&identifier.name)
-                            .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
+                            .unwrap_or_else(|| {
+                                panic!("Variable {} not found in scope", identifier.name)
+                            })
                             .clone();
                         binop.right.accept(self);
                         let value = self.last_temp.clone();
@@ -121,7 +127,58 @@ impl Visitor for LLVMGenerator {
                 }
                 panic!("Left side of := must be a variable");
             }
-            // ...otros operadores...
+            // Operadores booleanos y de comparación
+            BinOp::EqualEqual(_)
+            | BinOp::NotEqual(_)
+            | BinOp::Less(_)
+            | BinOp::LessEqual(_)
+            | BinOp::Greater(_)
+            | BinOp::GreaterEqual(_) => {
+                binop.left.accept(self);
+                let left = self.last_temp.clone();
+                binop.right.accept(self);
+                let right = self.last_temp.clone();
+                let temp = self.next_temp();
+                let op = match &binop.operator {
+                    BinOp::EqualEqual(_) => "eq",
+                    BinOp::NotEqual(_) => "ne",
+                    BinOp::Less(_) => "slt",
+                    BinOp::LessEqual(_) => "sle",
+                    BinOp::Greater(_) => "sgt",
+                    BinOp::GreaterEqual(_) => "sge",
+                    _ => unreachable!(),
+                };
+                self.code.push(format!(
+                    "{temp} = icmp {op} i32 {left}, {right}",
+                    temp = temp,
+                    op = op,
+                    left = left,
+                    right = right
+                ));
+                self.last_temp = temp;
+            }
+            // Operadores lógicos (AND, OR)
+            BinOp::AndAnd(_) | BinOp::OrOr(_) => {
+                binop.left.accept(self);
+                let left = self.last_temp.clone();
+                binop.right.accept(self);
+                let right = self.last_temp.clone();
+                let temp = self.next_temp();
+                let op = match &binop.operator {
+                    BinOp::AndAnd(_) => "and",
+                    BinOp::OrOr(_) => "or",
+                    _ => unreachable!(),
+                };
+                self.code.push(format!(
+                    "{temp} = {op} i1 {left}, {right}",
+                    temp = temp,
+                    op = op,
+                    left = left,
+                    right = right
+                ));
+                self.last_temp = temp;
+            }
+            // Operadores aritméticos
             _ => {
                 binop.left.accept(self);
                 let left = self.last_temp.clone();
@@ -133,7 +190,7 @@ impl Visitor for LLVMGenerator {
                     BinOp::Minus(_) => "sub",
                     BinOp::Mul(_) => "mul",
                     BinOp::Div(_) => "sdiv",
-                    // ...otros operadores...
+                    BinOp::Mod(_) => "srem",
                     _ => "add",
                 };
                 self.code.push(format!("{temp} = {op} i32 {left}, {right}"));
@@ -154,8 +211,10 @@ impl Visitor for LLVMGenerator {
             let unique_var = format!("{}_{}", var_name, scope_depth);
             self.code.push(format!("%{} = alloca i32", unique_var));
             assign.body.accept(self);
-            self.code
-                .push(format!("store i32 {}, i32* %{}", self.last_temp, unique_var));
+            self.code.push(format!(
+                "store i32 {}, i32* %{}",
+                self.last_temp, unique_var
+            ));
             // Guarda el puntero en el scope actual
             self.env_stack
                 .last_mut()
@@ -195,23 +254,18 @@ impl Visitor for LLVMGenerator {
                 self.last_temp = temp;
             }
             Literal::Str(s, _) => {
-                // Genera un global único para cada string
-                let label = format!("@.str_{}", self.temp_count);
+                let label = format!("@.str_{}", self.string_label_count);
                 let bytes = s.as_bytes();
-                let len = bytes.len() + 1; // +1 para el null terminator
-                let mut str_bytes = bytes.to_vec();
-                str_bytes.push(0);
-                let _str_const = str_bytes
-                    .iter()
-                    .map(|b| format!("\\{:02X}", b))
-                    .collect::<String>();
+                let len = bytes.len() + 1;
                 self.string_globals.push(format!(
                     "{label} = private unnamed_addr constant [{len} x i8] c\"{s}\\00\"",
                     label = label,
                     len = len,
                     s = s.replace("\\", "\\5C").replace("\"", "\\22")
                 ));
+                self.string_sizes.insert(label.clone(), len);
                 self.last_temp = label;
+                self.string_label_count += 1;
             }
         }
     }
@@ -219,88 +273,158 @@ impl Visitor for LLVMGenerator {
     fn visit_identifier(&mut self, _identifier: &crate::tokens::Identifier) {}
 
     fn visit_print(&mut self, expr: &Expression) {
+        use crate::ast::atoms::atom::Atom;
         expr.accept(self);
-        // Aquí podrías inspeccionar el tipo de la expresión si tienes esa info.
-        // Por simplicidad, asume que es i32 (número), pero puedes mejorar esto.
+
+        if let Expression::Atom(atom) = expr {
+            if let Atom::StringLiteral(_) = &**atom {
+                let label = self.last_temp.clone();
+                let len = *self.string_sizes.get(&label).unwrap_or(&0);
+                let fmt_ptr = self.next_temp();
+                let str_ptr = self.next_temp();
+                self.code.push(format!(
+                    "{fmt_ptr} = getelementptr [4 x i8], [4 x i8]* @.fmt_str, i32 0, i32 0",
+                    fmt_ptr = fmt_ptr
+                ));
+                self.code.push(format!(
+                    "{str_ptr} = getelementptr [{len} x i8], [{len} x i8]* {label}, i32 0, i32 0",
+                    str_ptr = str_ptr,
+                    len = len,
+                    label = label
+                ));
+                self.code.push(format!(
+                    "call i32 (i8*, ...) @printf(i8* {fmt_ptr}, i8* {str_ptr})",
+                    fmt_ptr = fmt_ptr,
+                    str_ptr = str_ptr
+                ));
+                return;
+            }
+            if let Atom::BooleanLiteral(_) = &**atom {
+                // Imprime como "true"/"false"
+                let bool_temp = self.last_temp.clone();
+                let true_ptr = self.next_temp();
+                let false_ptr = self.next_temp();
+                let result_ptr = self.next_temp();
+                self.code.push(format!(
+                "{true_ptr} = getelementptr inbounds [5 x i8], [5 x i8]* @.true_str, i32 0, i32 0"
+            ));
+                self.code.push(format!(
+                "{false_ptr} = getelementptr inbounds [6 x i8], [6 x i8]* @.false_str, i32 0, i32 0"
+            ));
+                self.code.push(format!(
+                    "{result_ptr} = select i1 {cond}, i8* {true_ptr}, i8* {false_ptr}",
+                    result_ptr = result_ptr,
+                    cond = bool_temp,
+                    true_ptr = true_ptr,
+                    false_ptr = false_ptr
+                ));
+                let fmt_ptr = self.next_temp();
+                self.code.push(format!(
+                    "{fmt_ptr} = getelementptr [4 x i8], [4 x i8]* @.fmt_str, i32 0, i32 0",
+                    fmt_ptr = fmt_ptr
+                ));
+                self.code.push(format!(
+                    "call i32 (i8*, ...) @printf(i8* {fmt_ptr}, i8* {result_ptr})",
+                    fmt_ptr = fmt_ptr,
+                    result_ptr = result_ptr
+                ));
+                return;
+            }
+        }
         self.code.push(format!(
-        "call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.fmt_int, i32 0, i32 0), i32 {})",
-        self.last_temp
-    ));
+            "call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.fmt_int, i32 0, i32 0), i32 {})",
+            self.last_temp
+        ));
     }
 
-    fn visit_while(&mut self, _whilee: &whilee::While) {}
-
-    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
-        let mut labels = Vec::new();
-
-        // Etiquetas para cada rama
-        let then_label = self.next_temp();
-        labels.push(then_label.clone());
-
-        for _ in &ifelse.elif_branches {
-            labels.push(self.next_temp());
-        }
-
-        let else_label = if ifelse.else_branch.is_some() {
-            self.next_temp()
-        } else {
-            self.next_temp() // igual se necesita para el salto final
-        };
-        labels.push(else_label.clone());
-
+    fn visit_while(&mut self, whilee: &whilee::While) {
+        let cond_label = self.next_temp();
+        let body_label = self.next_temp();
         let end_label = self.next_temp();
 
-        // Condición inicial (if)
-        ifelse.condition.accept(self);
+        // Salto a la condición
+        self.code
+            .push(format!("br label %{cond}", cond = &cond_label[1..]));
+
+        // Etiqueta de condición
+        self.code.push(format!("{}:", &cond_label[1..]));
+        whilee.cond.accept(self);
         let cond_temp = self.last_temp.clone();
         self.code.push(format!(
-            "br i1 {cond}, label %{then}, label %{elif_or_else}",
+            "br i1 {cond}, label %{body}, label %{end}",
             cond = cond_temp,
-            then = &labels[0][1..],
-            elif_or_else = &labels[1][1..]
+            body = &body_label[1..],
+            end = &end_label[1..]
         ));
 
-        // Rama then
-        self.code.push(format!("{}:", &labels[0][1..]));
-        ifelse.then_branch.accept(self);
+        // Etiqueta de cuerpo
+        self.code.push(format!("{}:", &body_label[1..]));
+        whilee.body.accept(self);
+        // Al terminar el cuerpo, vuelve a la condición
         self.code
-            .push(format!("br label %{end}", end = &end_label[1..]));
+            .push(format!("br label %{cond}", cond = &cond_label[1..]));
 
-        // Elif branches
+        // Etiqueta de fin
+        self.code.push(format!("{}:", &end_label[1..]));
+    }
+
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        let mut cond_labels = Vec::new();
+        let mut then_labels = Vec::new();
+
+        // Etiquetas para cada condición y bloque de cada elif
+        for _ in &ifelse.elif_branches {
+            cond_labels.push(self.next_temp());
+            then_labels.push(self.next_temp());
+        }
+
+        let then_label = self.next_temp(); // if
+        let else_label = self.next_temp();
+        let end_label = self.next_temp();
+
+        // IF principal
+        ifelse.condition.accept(self);
+        let cond_temp = self.last_temp.clone();
+        let first_elif = if !cond_labels.is_empty() { &cond_labels[0] } else { &else_label };
+        self.code.push(format!(
+            "br i1 {cond}, label %{then}, label %{elif}",
+            cond = cond_temp,
+            then = &then_label[1..],
+            elif = &first_elif[1..]
+        ));
+
+        // THEN principal
+        self.code.push(format!("{}:", &then_label[1..]));
+        ifelse.then_branch.accept(self);
+        self.code.push(format!("br label %{end}", end = &end_label[1..]));
+
+        // ELIFs
         for (i, (_kw, cond, branch)) in ifelse.elif_branches.iter().enumerate() {
-            self.code.push(format!("{}:", &labels[i + 1][1..]));
+            // Condición del elif
+            self.code.push(format!("{}:", &cond_labels[i][1..]));
             cond.accept(self);
             let cond_temp = self.last_temp.clone();
-            let next_label = if i + 2 < labels.len() {
-                &labels[i + 2]
-            } else {
-                &else_label
-            };
+            let next_cond = if i + 1 < cond_labels.len() { &cond_labels[i + 1] } else { &else_label };
             self.code.push(format!(
-                "br i1 {cond}, label %{then}, label %{next}",
+                "br i1 {cond}, label %{then_block}, label %{next}",
                 cond = cond_temp,
-                then = &labels[i + 1][1..],
-                next = &next_label[1..]
+                then_block = &then_labels[i][1..],
+                next = &next_cond[1..]
             ));
+            // THEN de este elif
+            self.code.push(format!("{}:", &then_labels[i][1..]));
             branch.accept(self);
-            self.code
-                .push(format!("br label %{end}", end = &end_label[1..]));
+            self.code.push(format!("br label %{end}", end = &end_label[1..]));
         }
 
-        // Rama else (si existe)
+        // ELSE
+        self.code.push(format!("{}:", &else_label[1..]));
         if let Some(else_branch) = &ifelse.else_branch {
-            self.code.push(format!("{}:", &else_label[1..]));
             else_branch.accept(self);
-            self.code
-                .push(format!("br label %{end}", end = &end_label[1..]));
-        } else {
-            // Si no hay else, igual marca el bloque
-            self.code.push(format!("{}:", &else_label[1..]));
-            self.code
-                .push(format!("br label %{end}", end = &end_label[1..]));
         }
+        self.code.push(format!("br label %{end}", end = &end_label[1..]));
 
-        // Fin
+        // END
         self.code.push(format!("{}:", &end_label[1..]));
     }
 
@@ -314,10 +438,18 @@ impl Visitor for LLVMGenerator {
         let temp = self.next_temp();
         match unary_op.op {
             crate::tokens::UnaryOp::Minus(_) => {
-                self.code.push(format!("{temp} = sub i32 0, {expr}", temp = temp, expr = expr_temp));
+                self.code.push(format!(
+                    "{temp} = sub i32 0, {expr}",
+                    temp = temp,
+                    expr = expr_temp
+                ));
             }
             crate::tokens::UnaryOp::Not(_) => {
-                self.code.push(format!("{temp} = xor i1 {expr}, true", temp = temp, expr = expr_temp));
+                self.code.push(format!(
+                    "{temp} = xor i1 {expr}, true",
+                    temp = temp,
+                    expr = expr_temp
+                ));
             }
             _ => {
                 panic!("Unsupported unary operation: {:?}", unary_op.op);

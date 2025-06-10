@@ -14,7 +14,7 @@ impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Literal::Number(n, _) => write!(f, "{}", n),
-            Literal::Str(s, _) => write!(f, "\"{}\"", s),
+            Literal::Str(s, _) => write!(f, "{}", s),
             Literal::Bool(b, _) => write!(f, "{}", b),
         }
     }

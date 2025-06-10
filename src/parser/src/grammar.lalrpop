@@ -200,7 +200,7 @@ BoolLiteral: tokens::Literal = {
 
 StrLiteral: tokens::Literal = {
    <s: @L> <v: r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
-        v.to_string(),
+        v[1..v.len()-1].to_string(),
         tokens::Position::new(s, e)
     ),
 };
