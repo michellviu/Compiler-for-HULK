@@ -38,6 +38,12 @@ impl AstOptimizer {
 }
 
 impl Visitor for AstOptimizer {
+    fn visit_for(&mut self, forr: &ast::forr::For) {
+        
+    }
+    fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
+        
+    }
 
     fn visit_program(&mut self, program: &ast::Program) {
         program.expression_list.accept(self);
