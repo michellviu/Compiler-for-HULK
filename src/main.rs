@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use parser::visitor::type_checker::TypeChecker;
 
 fn _strip_comments(source: &str) -> Result<String, String> {
     let mut result = String::with_capacity(source.len());
@@ -99,6 +100,16 @@ fn main() {
 
     match parser::parse_program(&source) {
         Ok(program) => {
+            let mut type_checker = TypeChecker::new();
+            program.accept(&mut type_checker);
+
+            if !type_checker.errors.is_empty() {
+                for err in type_checker.errors {
+                    eprintln!("Type error: {}", err);
+                }
+                std::process::exit(1);
+            }
+
             let mut printer = AstPrinterVisitor::new();
             program.accept(&mut printer);
 

@@ -3,118 +3,208 @@ use crate::ast::expressions::binoperation::BinaryOp;
 use crate::ast::visitor::{Visitable, Visitor};
 use crate::tokens;
 use crate::tokens::BinOp;
+use crate::visitor::Type;
+
+use std::collections::HashMap;
 
 pub struct TypeChecker {
     pub errors: Vec<String>,
+    scopes: Vec<HashMap<String, Type>>,
 }
 
 impl TypeChecker {
     pub fn new() -> Self {
-        TypeChecker { errors: Vec::new() }
-    }
-
-    fn is_string_type(&self, expr: &ast::Expression) -> bool {
-        match expr {
-            ast::Expression::Atom(atom) => match &**atom {
-                ast::atoms::atom::Atom::StringLiteral(_) => true,
-                _ => false,
-            },
-            _ => false,
+        TypeChecker {
+            errors: Vec::new(),
+            scopes: vec![HashMap::new()],
         }
     }
 
-    fn is_number_type(&self, expr: &ast::Expression) -> bool {
-        match expr {
-            ast::Expression::Atom(atom) => match &**atom {
-                ast::atoms::atom::Atom::NumberLiteral(_) => true,
-                _ => false,
-            },
-            _ => false,
+    fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn exit_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    fn declare_var(&mut self, name: &str, ty: Type) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name.to_string(), ty);
         }
     }
 
-    fn coerce_to_string(&self, expr: &ast::Expression) -> ast::Expression {
-        // For simplicity, wrap the expression in a function call to string conversion
-        // This requires a String conversion function in the runtime, e.g. to_string()
-        // Here we just return the expression as is, assuming implicit coercion is handled elsewhere
-        expr.clone()
+    fn lookup_var(&self, name: &str) -> Option<Type> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(ty) = scope.get(name) {
+                return Some(ty.clone());
+            }
+        }
+        None
     }
 }
 
 impl Visitor for TypeChecker {
+    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
+        
+    }
+    fn visit_block(&mut self, block: &ast::expressions::block::Block) {
+        
+    }
+    fn visit_expression(&mut self, expr: &ast::Expression) {
+        
+    }
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+    }
+    fn visit_for(&mut self, forr: &ast::forr::For) {
+        
+    }
+    fn visit_group(&mut self, group: &ast::atoms::group::Group) {
+        
+    }
+    fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
+        
+    }
+    fn visit_literal(&mut self, literal: &tokens::Literal) {
+        
+    }
+    fn visit_print(&mut self, expr: &ast::Expression) {
+        expr.accept(self);
+    }
     fn visit_program(&mut self, program: &ast::Program) {
-        program.expressions.iter().for_each(|e| e.accept(self));
+        program.expression_list.accept(self);
+    }
+    fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
+        
+    }
+    fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp) {
+        
     }
 
-    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
-        expr_list.expressions.iter().for_each(|e| e.accept(self));
+    fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
+        self.enter_scope();
+        for assign in &letin.bindings {
+            assign.accept(self);
+        }
+        letin.body.accept(self);
+        self.exit_scope();
     }
+
+    fn visit_assignment(&mut self, assign: &crate::ast::expressions::letin::Assignment) {
+        let var_name = if let crate::ast::atoms::atom::Atom::Variable(id) = &assign.variable {
+            id.name.clone()
+        } else {
+            "<anon>".to_string()
+        };
+        assign.body.accept(self);
+        let ty = self.infer_expr_type(&assign.body);
+        self.declare_var(&var_name, ty);
+    }
+
+    fn visit_binary_op(&mut self, binop: &crate::ast::expressions::binoperation::BinaryOp) {
+        binop.left.accept(self);
+        binop.right.accept(self);
+        use crate::tokens::BinOp;
+        let left_ty = self.infer_expr_type(&binop.left);
+        let right_ty = self.infer_expr_type(&binop.right);
+
+        match &binop.operator {
+            BinOp::Plus(_) | BinOp::Minus(_) | BinOp::Mul(_) | BinOp::Div(_) | BinOp::Mod(_) => {
+                if left_ty != Type::Number || right_ty != Type::Number {
+                    self.errors.push("Operación aritmética requiere números".to_string());
+                }
+            }
+            BinOp::EqualEqual(_) | BinOp::NotEqual(_) | BinOp::Greater(_)
+            | BinOp::Less(_) | BinOp::GreaterEqual(_) | BinOp::LessEqual(_) => {
+                if left_ty != right_ty {
+                    self.errors.push("Comparación entre tipos incompatibles".to_string());
+                }
+            }
+            BinOp::AndAnd(_) | BinOp::OrOr(_) => {
+                if left_ty != Type::Boolean || right_ty != Type::Boolean {
+                    self.errors.push("Operador lógico requiere booleanos".to_string());
+                }
+            }
+            BinOp::ConcatString(_) => {
+                if !(left_ty == Type::String || left_ty == Type::Number) ||
+                   !(right_ty == Type::String || right_ty == Type::Number) {
+                    self.errors.push("Concatenación requiere string o número".to_string());
+                }
+            }
+            BinOp::Assign(_) => { /* handled in assignment */ }
+            _ => {}
+        }
+    }
+
     fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
         ifelse.condition.accept(self);
+        let cond_ty = self.infer_expr_type(&ifelse.condition);
+        if cond_ty != Type::Boolean {
+            self.errors.push("Condición de if debe ser booleana".to_string());
+        }
         ifelse.then_branch.accept(self);
-        for (_, cond, expr) in &ifelse.elif_branches {
+        for (_, cond, branch) in &ifelse.elif_branches {
             cond.accept(self);
-            expr.accept(self);
+            let t = self.infer_expr_type(cond);
+            if t != Type::Boolean {
+                self.errors.push("Condición de elif debe ser booleana".to_string());
+            }
+            branch.accept(self);
         }
         if let Some(branch) = &ifelse.else_branch {
             branch.accept(self);
         }
     }
 
-    fn visit_expression(&mut self, expr: &ast::Expression) {
-        expr.accept(self);
-    }
-
-    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
-        // No type checking needed for atoms here
-    }
-
-    fn visit_binary_op(&mut self, binop: &BinaryOp) {
-        binop.left.accept(self);
-        binop.right.accept(self);
-
-        if let BinOp::ConcatString(_) = binop.operator {
-            let left_is_string = self.is_string_type(&binop.left);
-            let right_is_string = self.is_string_type(&binop.right);
-            let left_is_number = self.is_number_type(&binop.left);
-            let right_is_number = self.is_number_type(&binop.right);
-
-            if !(left_is_string || left_is_number) {
-                self.errors
-                    .push(format!("Left operand of @ must be string or number"));
-            }
-            if !(right_is_string || right_is_number) {
-                self.errors
-                    .push(format!("Right operand of @ must be string or number"));
-            }
-
-            // Coercion logic would go here if we mutate the AST
-            // For now, just check types and report errors
+    fn visit_while(&mut self, whilee: &crate::ast::expressions::whilee::While) {
+        whilee.cond.accept(self);
+        let cond_ty = self.infer_expr_type(&whilee.cond);
+        if cond_ty != Type::Boolean {
+            self.errors.push("Condición de while debe ser booleana".to_string());
         }
+        whilee.body.accept(self);
     }
 
-    fn visit_letin(&mut self, letin: &ast::atoms::letin::LetIn) {
-        letin.assignments.iter().for_each(|a| a.accept(self));
-        letin.expression.accept(self);
-    }
+    // ...
+}
 
-    fn visit_assignment(&mut self, assign: &ast::atoms::letin::Assignment) {
-        assign.expression.accept(self);
-    }
-
-    fn visit_block(&mut self, block: &ast::atoms::block::Block) {
-        block
-            .expressions
-            .expressions
-            .iter()
-            .for_each(|e| e.accept(self));
-    }
-
-    fn visit_literal(&mut self, _literal: &tokens::Literal) {}
-
-    fn visit_identifier(&mut self, _identifier: &tokens::Identifier) {}
-
-    fn visit_print(&mut self, expr: &ast::Expression, _pos: &tokens::Position) {
-        expr.accept(self);
+impl TypeChecker {
+    fn infer_expr_type(&mut self, expr: &crate::ast::Expression) -> Type {
+        use crate::ast::Expression;
+        use crate::ast::atoms::atom::Atom;
+        match expr {
+            Expression::Atom(atom) => match &**atom {
+                Atom::NumberLiteral(_) => Type::Number,
+                Atom::BooleanLiteral(_) => Type::Boolean,
+                Atom::StringLiteral(_) => Type::String,
+                Atom::Variable(id) => {
+                    match self.lookup_var(&id.name) {
+                        Some(ty) => ty,
+                        None => {
+                            self.errors.push(format!("Variable '{}' no está declarada", id.name));
+                            Type::Unknown
+                        }
+                    }
+                }
+                _ => Type::Unknown,
+            },
+            Expression::BinaryOp(binop) => {
+                use crate::tokens::BinOp;
+                let left = self.infer_expr_type(&binop.left);
+                let right = self.infer_expr_type(&binop.right);
+                match &binop.operator {
+                    BinOp::Plus(_) | BinOp::Minus(_) | BinOp::Mul(_) | BinOp::Div(_) | BinOp::Mod(_) => Type::Number,
+                    BinOp::EqualEqual(_) | BinOp::NotEqual(_) | BinOp::Greater(_)
+                    | BinOp::Less(_) | BinOp::GreaterEqual(_) | BinOp::LessEqual(_)
+                    | BinOp::AndAnd(_) | BinOp::OrOr(_) => Type::Boolean,
+                    BinOp::ConcatString(_) => Type::String,
+                    _ => Type::Unknown,
+                }
+            }
+            _ => Type::Unknown,
+        }
     }
 }
