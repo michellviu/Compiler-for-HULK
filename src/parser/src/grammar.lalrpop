@@ -9,24 +9,46 @@ pub Program: ast::Program = {
     <list:ExpressionList> => ast::Program::new(list),
 };
 
-pub Block: ast::Atom = {
+pub Block: ast::Expression = {
     <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
-        ast::Atom::new_block(o, e, c)
+        ast::Expression::new_block(ast::Block::new(o,e,c))
     },
 };
 
 pub ExpressionList: ast::ExpressionList = {
-    <e:Expression> ";" <rest:ExpressionList> => {
-        let mut exprs = vec![e];
-        exprs.extend(rest.expressions);
-        ast::ExpressionList::new(exprs)
+    <e:Expression> <rest:ExpressionList> => {
+        let mut v = vec![e];
+        v.extend(rest.expressions);
+        ast::ExpressionList::new(v)
     },
-    <e:Expression> ";" => ast::ExpressionList::new(vec![e]),
+    <e:Expression> => ast::ExpressionList::new(vec![e]),
+    // O vacío si lo deseas:
+    // => ast::ExpressionList::new(vec![]),
 };
 
 pub Expression: ast::Expression = {
+    <e:SemiColonExpression> ";" => e,
+    <e:NoSemiColonExpression> => e,
+};
+
+SemiColonExpression: ast::Expression = {
+    LetExpression,
     PrintExpression,
-    Addition,
+    DestructiveAssign,
+    // Agrega aquí otras que requieran ';'
+};
+
+NoSemiColonExpression: ast::Expression = {
+    IfElseExpression,
+    WhileExpression,
+    BooleanExpr, //!!!!!!! Addition esta incluida en BooleanExpr
+    Block,
+    // Agrega aquí otras que no requieran ';'
+};
+
+WhileExpression: ast::Expression = {
+    <tk:While> "(" <cond:Expression> ")" <body:Expression> =>
+        ast::Expression::new_while(ast::While::new(tk,cond,body)),
 };
 
 PrintExpression: ast::Expression = {
@@ -40,8 +62,8 @@ pub Addition: ast::Expression = {
 };
 
 PlusMinusBinary: tokens::BinOp = {
-   <s: @L> <t: "+"> <e: @R> => tokens::BinOp::Plus(tokens::Position::new(s, e)),
-   <s: @L> <t: "-"> <e: @R> => tokens::BinOp::Minus(tokens::Position::new(s, e)),
+   <s: @L> "+" <e: @R> => tokens::BinOp::Plus(tokens::Position::new(s, e)),
+   <s: @L> "-" <e: @R> => tokens::BinOp::Minus(tokens::Position::new(s, e)),
 };
 
 Factor: ast::Expression = {
@@ -50,9 +72,9 @@ Factor: ast::Expression = {
 };
 
 FactorOp: tokens::BinOp = {
-   <s: @L> <t: "*"> <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
-   <s: @L> <t: "/"> <e: @R> => tokens::BinOp::Div(tokens::Position::new(s, e)),
-   <s: @L> <t: "%"> <e: @R> => tokens::BinOp::Mod(tokens::Position::new(s, e)),
+   <s: @L> "*" <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
+   <s: @L> "/" <e: @R> => tokens::BinOp::Div(tokens::Position::new(s, e)),
+   <s: @L> "%" <e: @R> => tokens::BinOp::Mod(tokens::Position::new(s, e)),
 };
 
 Term: ast::Expression = {
@@ -60,36 +82,70 @@ Term: ast::Expression = {
 };
 
 pub Atom: ast::Atom = {
-    <n:NumLiteral> => 
-        ast::Atom::NumberLiteral(n),
-    <b:BoolLiteral> =>
-        ast::Atom::BooleanLiteral(b),
-    <s:StrLiteral> =>
-        ast::Atom::StringLiteral(s),
-    <i:Identifier> => 
-        ast::Atom::Variable(i),
-    GroupedExpression,
-    LetExpression,
-    Block,
+    <n:NumLiteral> => ast::Atom::NumberLiteral(n),
+    <b:BoolLiteral> => ast::Atom::BooleanLiteral(b),
+    <s:StrLiteral> => ast::Atom::StringLiteral(s),
+    <v:Variable> => v,
+    <g:GroupedExpression> => g,
+};
 
-}
+TerminatedExpression: ast::Expression = {
+    <e:Expression> ";" => e,
+};
 
-LetExpression: ast::Atom = {
-    <k: Let> <a:AssignmentList> <i:In> <e:Atom>
-        => ast::Atom::new_let_expression(k, a, i, e),
-}
+IfElseExpression: ast::Expression = {
+    <if_kw:If> "(" <cond:Expression> ")" <then_branch:Expression>
+    <elifs:ElifBranchesOpt> <else_branch:ElseBranch> =>
+        ast::Expression::new_ifelse(ast::ifelse::IfElse::new(
+            if_kw,
+            cond,
+            then_branch,
+            elifs,
+            Some(else_branch.0),
+            Some(else_branch.1)
+        )),
+};
+
+ElifBranchesOpt: Vec<(tokens::Keyword, ast::Expression, ast::Expression)> = {
+    <e:ElifBranches> => e,
+    => vec![],
+};
+
+ElifBranches: Vec<(tokens::Keyword, ast::Expression, ast::Expression)> = {
+    <head:ElifBranch> <tail:ElifBranches> => {
+        let mut v = vec![head];
+        v.extend(tail);
+        v
+    },
+    <head:ElifBranch> => vec![head],
+};
+
+ElifBranch: (tokens::Keyword, ast::Expression, ast::Expression) = {
+    <elif_kw:Elif> "(" <cond:Expression> ")" <body:Expression> =>
+        (elif_kw, cond, body),
+};
+
+ElseBranch: (tokens::Keyword, ast::Expression) = {
+    <else_kw:Else> <body:Expression> => (else_kw, body),
+};
+
+LetExpression: ast::Expression = {
+    <k: Let> <a:AssignmentList> <i:In> <e:Expression> =>
+        ast::Expression::new_letin(
+            ast::LetIn::new(k, a, i, e)
+        ),
+};
 
 Assignment: ast::Assignment = {
-    <id:Identifier> <o:EqualOperator> <e:Expression>
-        => ast::Assignment::new(id, o, e),
-}
+    <id:Variable> <o:EqualOperator> <e:Expression> =>
+        ast::Assignment::new(id, o, e),
+};
 
 EqualOperator: tokens::BinOp = {
-    <s: @L> "=" <e: @R>
-        => tokens::BinOp::Equal(tokens::Position::new(s, e)),
-}
+    <s: @L> "=" <e: @R> => tokens::BinOp::Equal(tokens::Position::new(s, e)),
+};
 
-AssignmentList:  Vec<ast::Assignment> = {
+AssignmentList: Vec<ast::Assignment> = {
     <a:Assignment> "," <rest:AssignmentList> => {
         let mut assignments = vec![a];
         assignments.extend(rest);
@@ -99,61 +155,124 @@ AssignmentList:  Vec<ast::Assignment> = {
 };
 
 GroupedExpression: ast::Atom = {
-     "(" <e: Expression> ")"
-        => ast::Atom::new_grouped_expression(e),
-}
+     <op:OpenParen> <e: Expression> <cp:CloseParen> => ast::Atom::new_grouped_expression(ast::Group::new(op,e,cp)),
+};
 
 OpenBrace: tokens::GroupingOperator = {
-    <s: @L> "{" <e: @R>
-        => tokens::GroupingOperator::OpenBrace(tokens::Position::new(s, e)),
-}
+    <s: @L> "{" <e: @R> => tokens::GroupingOperator::OpenBrace(tokens::Position::new(s, e)),
+};
 
 CloseBrace: tokens::GroupingOperator = {
-    <s: @L> "}" <e: @R>
-        => tokens::GroupingOperator::CloseBrace(tokens::Position::new(s, e)),
-}
+    <s: @L> "}" <e: @R> => tokens::GroupingOperator::CloseBrace(tokens::Position::new(s, e)),
+};
+
+OpenParen: tokens::GroupingOperator = {
+    <s: @L> "(" <e: @R> => tokens::GroupingOperator::OpenParen(tokens::Position::new(s, e)),
+};
+
+CloseParen: tokens::GroupingOperator = {
+    <s: @L> ")" <e: @R> => tokens::GroupingOperator::CloseParen(tokens::Position::new(s, e)),
+};
 
 Let: tokens::Keyword = {
-    <s: @L> "let" <e: @R>
-        => tokens::Keyword::Let(tokens::Position::new(s, e)),
+    <s: @L> "let" <e: @R> => tokens::Keyword::Let(tokens::Position::new(s, e)),
 };
+
+While: tokens::Keyword = {
+    <s:@L> "while" <e:@R> => tokens::Keyword::While(tokens::Position::new(s,e)),
+}
 
 In: tokens::Keyword = {
-    <s: @L> "in" <e: @R>
-        => tokens::Keyword::In(tokens::Position::new(s, e)),
+    <s: @L> "in" <e: @R> => tokens::Keyword::In(tokens::Position::new(s, e)),
 };
 
-NumLiteral: tokens::Literal   = {
-   <s: @L> <v:r"[0-9]+"> <e: @R> => tokens::Literal::Number(
+NumLiteral: tokens::Literal = {
+   <s: @L> <v: r"[0-9]+"> <e: @R> => tokens::Literal::Number(
         i32::from_str(v).unwrap(),
         tokens::Position::new(s, e)
     ),
 };
 
 BoolLiteral: tokens::Literal = {
-   <s: @L> <v:"true"> <e: @R> => tokens::Literal::Bool(
-        true,
-        tokens::Position::new(s, e)
-    ),
-   <s: @L> <v:"false"> <e: @R> => tokens::Literal::Bool(
-        false,
-        tokens::Position::new(s, e)
-    ),
+   <s: @L> "true" <e: @R> => tokens::Literal::Bool(true, tokens::Position::new(s, e)),
+   <s: @L> "false" <e: @R> => tokens::Literal::Bool(false, tokens::Position::new(s, e)),
 };
 
 StrLiteral: tokens::Literal = {
-   <s: @L> <v:r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
-        v.to_string(),
+   <s: @L> <v: r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
+        v[1..v.len()-1].to_string(),
         tokens::Position::new(s, e)
     ),
 };
 
+Variable: ast::Atom = {
+    <id:Identifier> => ast::Atom::Variable(id),
+};
+
 Identifier: tokens::Identifier = {
-   <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> => tokens::Identifier::new(
-        s,e,n
+   <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> =>
+        tokens::Identifier::new(s, e, n),
+};
+
+If: tokens::Keyword = {
+    <s: @L> "if" <e: @R> => tokens::Keyword::If(tokens::Position::new(s, e)),
+};
+
+Elif: tokens::Keyword = {
+    <s: @L> "elif" <e: @R> => tokens::Keyword::Elif(tokens::Position::new(s, e)),
+};
+
+Else: tokens::Keyword = {
+    <s: @L> "else" <e: @R> => tokens::Keyword::Else(tokens::Position::new(s, e)),
+};
+
+
+BooleanExpr: ast::Expression = {
+    <l:BooleanExpr> <op:LogicalOp> <r:ComparisonExpr> => ast::Expression::new_binary_op(l, r, op),
+    ComparisonExpr,
+};
+
+ComparisonExpr: ast::Expression = {
+
+    <l:Addition> <op:ComparisonOp> <r:Addition> => ast::Expression::new_binary_op(l, r, op),
+    Addition,
+
+};
+
+// UnaryExpr: ast::Expression = {
+//     <op:UnaryOp> <e:UnaryExpr> => ast::Expression::new_unary_op(op, e),
+//     Addition,
+// };
+
+ComparisonOp: tokens::BinOp = {
+    <s: @L> "==" <e: @R> => tokens::BinOp::EqualEqual(tokens::Position::new(s, e)),
+    <s: @L> "!=" <e: @R> => tokens::BinOp::NotEqual(tokens::Position::new(s, e)),
+    <s: @L> "<" <e: @R>  => tokens::BinOp::Less(tokens::Position::new(s, e)),
+    <s: @L> "<=" <e: @R> => tokens::BinOp::LessEqual(tokens::Position::new(s, e)),
+    <s: @L> ">" <e: @R>  => tokens::BinOp::Greater(tokens::Position::new(s, e)),
+    <s: @L> ">=" <e: @R> => tokens::BinOp::GreaterEqual(tokens::Position::new(s, e)),
+};
+
+LogicalOp: tokens::BinOp = {
+    <s: @L> "&" <e: @R> => tokens::BinOp::AndAnd(tokens::Position::new(s, e)),
+    <s: @L> "|" <e: @R> => tokens::BinOp::OrOr(tokens::Position::new(s, e)),
+};
+
+UnaryOp: tokens::UnaryOp = {
+    <s: @L> "!" <e: @R> => tokens::UnaryOp::Not(tokens::Position::new(s, e)),
+    <s: @L> "-" <e: @R> => tokens::UnaryOp::Minus(tokens::Position::new(s, e)),
+}
+
+
+AssignDestructiveOperator: tokens::BinOp = {
+    <s: @L> ":=" <e: @R> => tokens::BinOp::Assign(tokens::Position::new(s, e)),
+};
+
+DestructiveAssign: ast::Expression = {
+    <v:Variable> <op:AssignDestructiveOperator> <e:Expression> => ast::Expression::new_binary_op(
+        ast::Expression::new_atom(v),
+        e,
+        op
     ),
 };
 
-Semicolon: tokens::SpecialOp = {
-    <s: @L> ";" <e: @R> => tokens::SpecialOp::Semicolon(tokens::Position::new(s, e)),
-};
