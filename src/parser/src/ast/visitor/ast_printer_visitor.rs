@@ -21,6 +21,7 @@ impl AstPrinterVisitor {
 }
 
 impl Visitor for AstPrinterVisitor {
+
     fn visit_program(&mut self, program: &ast::Program) {
         println!("{}Program", self.pad());
         self.indent += 1;
@@ -44,6 +45,7 @@ impl Visitor for AstPrinterVisitor {
             Expression::IfElse(ifelse) => ifelse.accept(self),
             Expression::LetIn(letin) => letin.accept(self),
             Expression::Block(block) => block.accept(self),
+            Expression::UnaryOp(unary_op) => unary_op.accept(self),
         }
     }
 
@@ -61,11 +63,23 @@ impl Visitor for AstPrinterVisitor {
         }
     }
     fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {
-        println!("{}BinaryOp: {}", self.pad(), binop.operator);
-        self.indent += 1;
-        binop.left.accept(self);
-        binop.right.accept(self);
-        self.indent -= 1;
+        use crate::tokens::BinOp;
+        match &binop.operator {
+            BinOp::Assign(_) => {
+                println!("{}DestructiveAssign:", self.pad());
+                self.indent += 1;
+                binop.left.accept(self);
+                binop.right.accept(self);
+                self.indent -= 1;
+            }
+            _ => {
+                println!("{}BinaryOp: {}", self.pad(), binop.operator);
+                self.indent += 1;
+                binop.left.accept(self);
+                binop.right.accept(self);
+                self.indent -= 1;
+            }
+        }
     }
     fn visit_letin(&mut self, letin: &ast::expressions::letin::LetIn) {
         println!("{}LetIn", self.pad());
@@ -155,5 +169,12 @@ impl Visitor for AstPrinterVisitor {
     fn visit_group(&mut self, group: &group::Group) {
         println!("{}Group", self.pad());
         group.expression.accept(self);
+    }
+
+    fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp) {
+        println!("{}UnaryOp: {}", self.pad(), unary_op.op);
+        self.indent += 1;
+        unary_op.expr.accept(self);
+        self.indent -= 1;
     }
 }

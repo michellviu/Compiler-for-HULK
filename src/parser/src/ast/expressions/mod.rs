@@ -16,5 +16,7 @@ pub mod block;
 pub use block::Block;
 pub use block::ExpressionList;
 
+pub mod unaryoperation;
+pub use unaryoperation::UnaryOp;
 
 

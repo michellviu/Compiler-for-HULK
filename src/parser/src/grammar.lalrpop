@@ -34,13 +34,14 @@ pub Expression: ast::Expression = {
 SemiColonExpression: ast::Expression = {
     LetExpression,
     PrintExpression,
+    DestructiveAssign,
     // Agrega aquí otras que requieran ';'
 };
 
 NoSemiColonExpression: ast::Expression = {
     IfElseExpression,
     WhileExpression,
-    Addition,
+    BooleanExpr, //!!!!!!! Addition esta incluida en BooleanExpr
     Block,
     // Agrega aquí otras que no requieran ';'
 };
@@ -199,7 +200,7 @@ BoolLiteral: tokens::Literal = {
 
 StrLiteral: tokens::Literal = {
    <s: @L> <v: r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
-        v.to_string(),
+        v[1..v.len()-1].to_string(),
         tokens::Position::new(s, e)
     ),
 };
@@ -224,3 +225,54 @@ Elif: tokens::Keyword = {
 Else: tokens::Keyword = {
     <s: @L> "else" <e: @R> => tokens::Keyword::Else(tokens::Position::new(s, e)),
 };
+
+
+BooleanExpr: ast::Expression = {
+    <l:BooleanExpr> <op:LogicalOp> <r:ComparisonExpr> => ast::Expression::new_binary_op(l, r, op),
+    ComparisonExpr,
+};
+
+ComparisonExpr: ast::Expression = {
+
+    <l:Addition> <op:ComparisonOp> <r:Addition> => ast::Expression::new_binary_op(l, r, op),
+    Addition,
+
+};
+
+// UnaryExpr: ast::Expression = {
+//     <op:UnaryOp> <e:UnaryExpr> => ast::Expression::new_unary_op(op, e),
+//     Addition,
+// };
+
+ComparisonOp: tokens::BinOp = {
+    <s: @L> "==" <e: @R> => tokens::BinOp::EqualEqual(tokens::Position::new(s, e)),
+    <s: @L> "!=" <e: @R> => tokens::BinOp::NotEqual(tokens::Position::new(s, e)),
+    <s: @L> "<" <e: @R>  => tokens::BinOp::Less(tokens::Position::new(s, e)),
+    <s: @L> "<=" <e: @R> => tokens::BinOp::LessEqual(tokens::Position::new(s, e)),
+    <s: @L> ">" <e: @R>  => tokens::BinOp::Greater(tokens::Position::new(s, e)),
+    <s: @L> ">=" <e: @R> => tokens::BinOp::GreaterEqual(tokens::Position::new(s, e)),
+};
+
+LogicalOp: tokens::BinOp = {
+    <s: @L> "&" <e: @R> => tokens::BinOp::AndAnd(tokens::Position::new(s, e)),
+    <s: @L> "|" <e: @R> => tokens::BinOp::OrOr(tokens::Position::new(s, e)),
+};
+
+UnaryOp: tokens::UnaryOp = {
+    <s: @L> "!" <e: @R> => tokens::UnaryOp::Not(tokens::Position::new(s, e)),
+    <s: @L> "-" <e: @R> => tokens::UnaryOp::Minus(tokens::Position::new(s, e)),
+}
+
+
+AssignDestructiveOperator: tokens::BinOp = {
+    <s: @L> ":=" <e: @R> => tokens::BinOp::Assign(tokens::Position::new(s, e)),
+};
+
+DestructiveAssign: ast::Expression = {
+    <v:Variable> <op:AssignDestructiveOperator> <e:Expression> => ast::Expression::new_binary_op(
+        ast::Expression::new_atom(v),
+        e,
+        op
+    ),
+};
+
