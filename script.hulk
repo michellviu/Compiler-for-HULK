@@ -1,9 +1,8 @@
 
-let x=4 in {
+let x=5 in {
 
     if(x%2==1)
     {
-        x:=print(x+1);;
         print(true);
         print("Hello");
 
@@ -14,11 +13,5 @@ let x=4 in {
     }
     else
      print(x);
-
-    while(x<8)
-    {
-        print(x);
-        x:=x+1;
-    }
 
 };

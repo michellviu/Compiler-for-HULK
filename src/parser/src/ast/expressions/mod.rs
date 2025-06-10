@@ -19,4 +19,9 @@ pub use block::ExpressionList;
 pub mod unaryoperation;
 pub use unaryoperation::UnaryOp;
 
+pub mod functiondeclaration;
+pub use functiondeclaration::FunctionDef;
+
+pub mod functioncall;
+pub use functioncall::FunctionCall;
 

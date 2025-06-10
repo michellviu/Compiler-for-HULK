@@ -46,6 +46,8 @@ impl Visitor for AstPrinterVisitor {
             Expression::LetIn(letin) => letin.accept(self),
             Expression::Block(block) => block.accept(self),
             Expression::UnaryOp(unary_op) => unary_op.accept(self),
+            Expression::FunctionDef(functdef) => functdef.accept(self),
+            Expression::FunctionCall(functcall) => functcall.accept(self),
         }
     }
 
@@ -55,7 +57,7 @@ impl Visitor for AstPrinterVisitor {
             NumberLiteral(lit) => lit.accept(self),
             BooleanLiteral(lit) => lit.accept(self),
             StringLiteral(lit) => lit.accept(self),
-            Variable(id) => {
+            Identifier(id) => {
                 println!("{}Variable: {}", self.pad(), id.name);
             }
             Group(expr) => expr.accept(self),
@@ -122,7 +124,7 @@ impl Visitor for AstPrinterVisitor {
     }
     fn visit_assignment(&mut self, assign: &ast::expressions::letin::Assignment) {
         let var_name = match &assign.variable {
-            Atom::Variable(identifier) => &identifier.name,
+            Atom::Identifier(identifier) => &identifier.name,
             _ => panic!("Expected variable in assignment"),
         };
         println!("{}Assignment: {} {}", self.pad(), var_name, assign.op);
@@ -175,6 +177,40 @@ impl Visitor for AstPrinterVisitor {
         println!("{}UnaryOp: {}", self.pad(), unary_op.op);
         self.indent += 1;
         unary_op.expr.accept(self);
+        self.indent -= 1;
+    }
+
+    fn visit_functdef(&mut self, functdef: &ast::expressions::functiondeclaration::FunctionDef) {
+        // Extract function name from Atom
+        let func_name = match &functdef.name {
+            Atom::Identifier(identifier) => &identifier.name,
+            _ => "<unknown>",
+        };
+        println!("{}FunctionDef: {}", self.pad(), func_name);
+        self.indent += 1;
+        for param in &functdef.params {
+            // Extract parameter name from Atom
+            let param_name = match &param.name {
+                Atom::Identifier(identifier) => &identifier.name,
+                _ => "<unknown>",
+            };
+            println!("{}Param: {} ({})", self.pad(), param_name, param.signature);
+        }
+        // println!("{}Return type: {:?}", self.pad());
+        functdef.body.accept(self);
+        self.indent -= 1;
+    }
+
+    fn visit_functcall(&mut self, functcall: &ast::expressions::functioncall::FunctionCall) {
+        let func_name = match &functcall.funct_name {
+            Atom::Identifier(identifier) => &identifier.name,
+            _ => "<unknown>",
+        };
+        println!("{}FunctionCall: {}", self.pad(), func_name);
+        self.indent += 1;
+        for arg in &functcall.arguments {
+            arg.accept(self);
+        }
         self.indent -= 1;
     }
 }

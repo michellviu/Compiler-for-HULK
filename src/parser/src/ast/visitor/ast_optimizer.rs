@@ -141,4 +141,12 @@ impl Visitor for AstOptimizer {
 
     fn visit_while(&mut self, _whilee: &ast::whilee::While) {}
 
+    fn visit_functdef(&mut self, _functdef: &ast::expressions::functiondeclaration::FunctionDef) {
+        // Nothing to optimize in function definitions
+    }
+
+    fn visit_functcall(&mut self, _functcall: &ast::expressions::functioncall::FunctionCall) {
+        // Nothing to optimize in function calls
+    }
+
 }

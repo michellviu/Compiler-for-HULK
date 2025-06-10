@@ -15,7 +15,8 @@ pub enum Expression {
     While(Box<whilee::While>),
     Block(Box<block::Block>),
     UnaryOp(UnaryOp),
-    
+    FunctionDef(Box<functiondeclaration::FunctionDef>),
+    FunctionCall(Box<functioncall::FunctionCall>),
 }
 
 impl Expression {
@@ -27,8 +28,7 @@ impl Expression {
         Expression::BinaryOp(BinaryOp::new(left, right, operator))
     }
 
-    pub fn new_unary_op(op: tokens::UnaryOp, expr: Expression) -> Self
-    {
+    pub fn new_unary_op(op: tokens::UnaryOp, expr: Expression) -> Self {
         Expression::UnaryOp(UnaryOp::new(op, expr))
     }
 
@@ -52,7 +52,13 @@ impl Expression {
         Expression::Block(Box::new(block))
     }
 
+    pub fn new_functiondef(f: functiondeclaration::FunctionDef) -> Self {
+        Expression::FunctionDef(Box::new(f))
+    }
 
+    pub fn new_functioncall(f: functioncall::FunctionCall) -> Self {
+    Expression::FunctionCall(Box::new(f))
+}
 }
 
 impl Visitable for Expression {
@@ -66,6 +72,8 @@ impl Visitable for Expression {
             Expression::LetIn(letin) => letin.accept(visitor),
             Expression::Block(block) => block.accept(visitor),
             Expression::UnaryOp(unoperator) => unoperator.accept(visitor),
+            Expression::FunctionDef(funcdef) => funcdef.accept(visitor),
+            Expression::FunctionCall(funcall) => funcall.accept(visitor),
         }
     }
 }
