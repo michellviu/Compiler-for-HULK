@@ -59,7 +59,7 @@ ForExpression: ast::Expression = {
         ast::Expression::new_for(
             ast::For::new(
                 tk,
-                ast::Expression::new_atom(ast::Atom::Variable(var)), // convierte el identificador a expresión
+                ast::Expression::new_atom(ast::Atom::Identifier(var)), // convierte el identificador a expresión
                 in_kw,
                 iter,
                 body

@@ -38,10 +38,10 @@ impl AstOptimizer {
 }
 
 impl Visitor for AstOptimizer {
-    fn visit_for(&mut self, forr: &ast::forr::For) {
+    fn visit_for(&mut self, _forr: &ast::forr::For) {
         
     }
-    fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
+    fn visit_range(&mut self, _start: &ast::Expression, _end: &ast::Expression) {
         
     }
 
