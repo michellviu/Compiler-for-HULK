@@ -1,17 +1,11 @@
+for (x in range(0, 10))
+let x=2,y=let z=4 in z+1; in print(x*(2+y));;
 
-let x=5 in {
+{
+    let x=3 in print(x);;
+}
 
-    if(x%2==1)
-    {
-        print(true);
-        print("Hello");
-
-    }
-     elif(x>=4 | true)
-    {
-        print(x);
-    }
-    else
-     print(x);
-
-};
+if(false)
+print(2);
+else
+print(3);

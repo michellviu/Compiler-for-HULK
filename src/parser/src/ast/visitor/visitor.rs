@@ -1,6 +1,7 @@
 use crate::ast;
 use crate::tokens;
 use crate::whilee;
+use crate::forr;
 pub trait Visitor {
     fn visit_program(&mut self, program: &ast::Program);
     fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList);
@@ -19,6 +20,8 @@ pub trait Visitor {
     fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp);
     fn visit_functdef(&mut self, functdef: &ast::expressions::functiondeclaration::FunctionDef);
     fn visit_functcall(&mut self, functcall: &ast::expressions::functioncall::FunctionCall);
+    fn visit_for(&mut self, forr: &forr::For);
+    fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression);
 }
 
 pub trait Visitable {

@@ -131,8 +131,8 @@ fn main() {
             }
         }
         Err(err) => {
-            if let Some(pos) = err.position {
-                println!("Error en {}–{}: {}", pos.start, pos.end, err.message);
+            if let Some(line) = err.line {
+                println!("Error en la línea {}: {}", line, err.message);
             } else {
                 println!("Error: {}", err.message);
             }

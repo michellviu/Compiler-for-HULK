@@ -65,6 +65,9 @@ impl Visitor for LLVMGenerator {
         program.expression_list.accept(self);
     }
 
+    fn visit_range(&mut self, start: &crate::ast::Expression, end: &crate::ast::Expression) {
+        
+    }
     fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
         for expr in &expr_list.expressions {
             expr.accept(self);
@@ -199,6 +202,9 @@ impl Visitor for LLVMGenerator {
         }
     }
 
+    fn visit_for(&mut self, forr: &crate::forr::For) {
+        
+    }
     fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
         self.env_stack.push(HashMap::new()); // Nuevo scope
 

@@ -11,15 +11,23 @@ pub enum Expression {
     Atom(Box<Atom>),
     IfElse(Box<ifelse::IfElse>),
     LetIn(Box<letin::LetIn>),
+    For(Box<forr::For>),
     Print(Box<Expression>, tokens::Position),
     While(Box<whilee::While>),
     Block(Box<block::Block>),
     UnaryOp(UnaryOp),
+    Range(Box<Expression>, Box<Expression>),
     FunctionDef(Box<functiondeclaration::FunctionDef>),
     FunctionCall(Box<functioncall::FunctionCall>),
 }
 
 impl Expression {
+    pub fn new_range(start: Expression, end: Expression) -> Self {
+        Expression::Range(Box::new(start), Box::new(end))
+    }
+    pub fn new_for(forr: forr::For) -> Self {
+        Expression::For(Box::new(forr))
+    }
     pub fn new_ifelse(ifelse: ifelse::IfElse) -> Self {
         Expression::IfElse(Box::new(ifelse))
     }
@@ -74,6 +82,11 @@ impl Visitable for Expression {
             Expression::UnaryOp(unoperator) => unoperator.accept(visitor),
             Expression::FunctionDef(funcdef) => funcdef.accept(visitor),
             Expression::FunctionCall(funcall) => funcall.accept(visitor),
+            Expression::For(forr) => forr.accept(visitor),
+            Expression::Range(start, end) => {
+                start.accept(visitor);
+                end.accept(visitor);
+            }
         }
     }
 }
