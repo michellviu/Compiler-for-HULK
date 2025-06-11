@@ -6,7 +6,7 @@ pub enum Atom {
     NumberLiteral(Literal),
     BooleanLiteral(Literal),
     StringLiteral(Literal),
-    Variable(Identifier),
+    Identifier(Identifier),
     Group(Box<group::Group>),
 }
 
@@ -36,7 +36,7 @@ impl Atom {
     }
 
     pub fn new_identifier(start: usize, end: usize, id: &str) -> Self {
-        Atom::Variable(Identifier {
+        Atom::Identifier(Identifier {
             name: id.to_string(),
             position: Position::new(start, end),
         })

@@ -16,8 +16,8 @@ impl Assignment {
     pub fn new(variable: Atom, op: BinOp, body: Expression) -> Self {
         match variable {
             
-            Atom::Variable(identifier) => Assignment {
-                variable: Atom::Variable(identifier),
+            Atom::Identifier(identifier) => Assignment {
+                variable: Atom::Identifier(identifier),
                 op,
                 body: Box::new(body),
             },

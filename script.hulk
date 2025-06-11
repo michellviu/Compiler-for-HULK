@@ -1,24 +1,4 @@
-
-let x=4 in {
-
-    if(x%2==1)
-    {
-        x:=print(x+1);;
-        print(true);
-        print("Hello");
-
-    }
-     elif(x>=4 | true)
-    {
-        print(x);
-    }
-    else
-     print(x);
-
-    while(x<8)
-    {
-        print(x);
-        x:=x+1;
-    }
-
-};
+for (x in range(0, 10))
+{
+    print(x);
+}

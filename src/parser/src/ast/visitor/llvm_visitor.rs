@@ -65,6 +65,9 @@ impl Visitor for LLVMGenerator {
         program.expression_list.accept(self);
     }
 
+    fn visit_range(&mut self, _start: &crate::ast::Expression, _end: &crate::ast::Expression) {
+        
+    }
     fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
         for expr in &expr_list.expressions {
             expr.accept(self);
@@ -86,7 +89,7 @@ impl Visitor for LLVMGenerator {
             Atom::NumberLiteral(lit) => self.visit_literal(lit),
             Atom::BooleanLiteral(lit) => self.visit_literal(lit),
             Atom::StringLiteral(lit) => self.visit_literal(lit),
-            Atom::Variable(identifier) => {
+            Atom::Identifier(identifier) => {
                 let ptr = self
                     .lookup_var(&identifier.name)
                     .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
@@ -111,7 +114,7 @@ impl Visitor for LLVMGenerator {
             BinOp::Assign(_) => {
                 // Lado izquierdo debe ser una variable
                 if let Expression::Atom(atom) = &*binop.left {
-                    if let Atom::Variable(identifier) = &**atom {
+                    if let Atom::Identifier(identifier) = &**atom {
                         let ptr = self
                             .lookup_var(&identifier.name)
                             .unwrap_or_else(|| {
@@ -199,12 +202,109 @@ impl Visitor for LLVMGenerator {
         }
     }
 
+    fn visit_for(&mut self, forr: &crate::forr::For) {
+        use crate::ast::atoms::atom::Atom;
+        use crate::ast::expressions::expressions::Expression;
+
+        // Extrae el nombre de la variable de control
+        let var_name = if let Expression::Atom(atom) = &*forr.var {
+            if let Atom::Identifier(identifier) = &**atom {
+                &identifier.name
+            } else {
+                panic!("For variable must be an identifier");
+            }
+        } else {
+            panic!("For variable must be an identifier expression");
+        };
+
+        // Crea variable local para el for (scope actual)
+        let scope_depth = self.env_stack.len();
+        let unique_var = format!("{}_{}", var_name, scope_depth);
+        self.code.push(format!("%{} = alloca i32", unique_var));
+
+        // Inicializa variable (asume que el iterable es un rango: range(start, end))
+        // Evaluamos el start
+        if let Expression::Range(start, end) = &*forr.iterable {
+            start.accept(self);
+            let start_temp = self.last_temp.clone();
+            self.code.push(format!("store i32 {}, i32* %{}", start_temp, unique_var));
+            // Evaluamos el end
+            end.accept(self);
+            let end_temp = self.last_temp.clone();
+
+            // Etiquetas
+            let loop_cond = self.next_temp();
+            let loop_body = self.next_temp();
+            let loop_exit = self.next_temp();
+
+            // Guardamos el puntero en el scope
+            self.env_stack
+                .last_mut()
+                .unwrap()
+                .insert(var_name.to_string(), format!("%{}", unique_var));
+
+            // Salto a condición
+            self.code.push(format!("br label %{cond}", cond = &loop_cond[1..]));
+
+            // Condición
+            self.code.push(format!("{}:", &loop_cond[1..]));
+            let x_val = self.next_temp();
+            self.code.push(format!(
+                "{x_val} = load i32, i32* %{var}",
+                x_val = x_val,
+                var = unique_var
+            ));
+            let cmp = self.next_temp();
+            self.code.push(format!(
+                "{cmp} = icmp slt i32 {x_val}, {end}",
+                cmp = cmp,
+                x_val = x_val,
+                end = end_temp
+            ));
+            self.code.push(format!(
+                "br i1 {cmp}, label %{body}, label %{exit}",
+                cmp = cmp,
+                body = &loop_body[1..],
+                exit = &loop_exit[1..]
+            ));
+
+            // Cuerpo
+            self.code.push(format!("{}:", &loop_body[1..]));
+            forr.body.accept(self);
+
+            // Incremento
+            let x_val2 = self.next_temp();
+            self.code.push(format!(
+                "{x_val2} = load i32, i32* %{var}",
+                x_val2 = x_val2,
+                var = unique_var
+            ));
+            let inc = self.next_temp();
+            self.code.push(format!(
+                "{inc} = add i32 {x_val2}, 1",
+                inc = inc,
+                x_val2 = x_val2
+            ));
+            self.code.push(format!(
+                "store i32 {inc}, i32* %{var}",
+                inc = inc,
+                var = unique_var
+            ));
+            self.code.push(format!("br label %{cond}", cond = &loop_cond[1..]));
+
+            // Exit
+            self.code.push(format!("{}:", &loop_exit[1..]));
+        } else {
+            panic!("For iterable must be a range expression");
+        }
+    }
+
     fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
         self.env_stack.push(HashMap::new()); // Nuevo scope
 
         for assign in &letin.bindings {
             let var_name = match &assign.variable {
-                Atom::Variable(identifier) => &identifier.name,
+                Atom::Identifier(identifier) => &identifier.name,
                 _ => panic!("Expected variable in assignment"),
             };
             let scope_depth = self.env_stack.len();
@@ -456,5 +556,13 @@ impl Visitor for LLVMGenerator {
             }
         }
         self.last_temp = temp;
+    }
+
+    fn visit_functdef(&mut self, _functdef: &crate::ast::expressions::functiondeclaration::FunctionDef) {
+        // Implementación pendiente
+    }
+    
+    fn visit_functcall(&mut self, _functcall: &crate::ast::expressions::functioncall::FunctionCall) {
+        // Implementación pendiente
     }
 }
