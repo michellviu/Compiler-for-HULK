@@ -21,3 +21,7 @@ pub mod forr;
 pub use forr::For;
 
 
+pub mod functioncall;
+pub use functioncall::FunctionCall;
+pub mod functiondeclaration;
+pub use functiondeclaration::FunctionDef;

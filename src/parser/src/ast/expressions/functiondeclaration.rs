@@ -2,7 +2,7 @@ use super::super::{Visitable, Visitor};
 use crate::Expression;
 use crate::tokens::{Keyword, Identifier };
 
-#[derive(Debug, PartialEq,Clone)]
+#[derive(Debug)]
 pub struct FunctionParams {
     pub name: Identifier,
     pub signature: String,
@@ -19,7 +19,7 @@ impl FunctionParams {
 
 
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug)]
 pub struct FunctionDef {
     pub name: Identifier,
     pub params: Vec<FunctionParams>,
@@ -40,6 +40,6 @@ impl FunctionDef {
 
 impl Visitable for FunctionDef {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
-        visitor.visit_functdef(self);
+        visitor.visit_function_def(self);
     }
 }

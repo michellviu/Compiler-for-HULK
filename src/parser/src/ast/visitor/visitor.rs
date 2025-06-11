@@ -20,6 +20,8 @@ pub trait Visitor {
     fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp);
     fn visit_for(&mut self, forr: &forr::For);
     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression);
+    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall);
+    fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef);
 }
 
 pub trait Visitable {

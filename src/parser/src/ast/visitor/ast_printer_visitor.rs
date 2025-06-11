@@ -10,6 +10,7 @@ use crate::visitor::Visitor;
 use crate::whilee;
 use crate::forr;
 
+
 pub struct AstPrinterVisitor {
     pub indent: usize,
 }
@@ -28,6 +29,11 @@ impl Visitor for AstPrinterVisitor {
     fn visit_program(&mut self, program: &ast::Program) {
         println!("{}Program", self.pad());
         self.indent += 1;
+        // Imprime las funciones declaradas
+        for func in &program.functions {
+            func.accept(self);
+        }
+        // Imprime la lista de expresiones globales
         program.expression_list.accept(self);
         self.indent -= 1;
     }
@@ -39,6 +45,7 @@ impl Visitor for AstPrinterVisitor {
         }
         self.indent -= 1;
     }
+    
     fn visit_expression(&mut self, expr: &ast::Expression) {
         match expr {
             Expression::BinaryOp(binop) => binop.accept(self),
@@ -51,6 +58,8 @@ impl Visitor for AstPrinterVisitor {
             Expression::UnaryOp(unary_op) => unary_op.accept(self),
             Expression::For(forr) => forr.accept(self),
             Expression::Range(start, end) => self.visit_range(start, end),
+            Expression::FunctionCall(call) => call.accept(self),      
+            Expression::FunctionDef(def) => def.accept(self),  
         }
     }
 
@@ -67,6 +76,29 @@ impl Visitor for AstPrinterVisitor {
         end.accept(self);
         self.indent -= 2;
     }
+    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall) {
+    println!("{}FunctionCall: {}", self.pad(), call.funct_name);
+    self.indent += 1;
+    for arg in &call.arguments {
+        arg.accept(self);
+    }
+    self.indent -= 1;
+}
+
+fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef) {
+    println!("{}FunctionDef: {}", self.pad(), def.name);
+    self.indent += 1;
+    println!("{}Params:", self.pad());
+    self.indent += 1;
+    for param in &def.params {
+        println!("{}{}", self.pad(), param.name);
+    }
+    self.indent -= 1;
+    println!("{}Body:", self.pad());
+    self.indent += 1;
+    def.body.accept(self);
+    self.indent -= 2;
+}
     fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
         use crate::ast::atoms::atom::Atom::*;
         match atom {

@@ -17,6 +17,8 @@ pub enum Expression {
     Block(Box<block::Block>),
     UnaryOp(UnaryOp),
     Range(Box<Expression>, Box<Expression>),
+    FunctionCall(functioncall::FunctionCall),
+    FunctionDef(functiondeclaration::FunctionDef),
     
 }
 
@@ -79,6 +81,8 @@ impl Visitable for Expression {
                 start.accept(visitor);
                 end.accept(visitor);
             }
+            Expression::FunctionCall(call) => call.accept(visitor),
+            Expression::FunctionDef(def) => def.accept(visitor),
         }
     }
 }

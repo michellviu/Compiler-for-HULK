@@ -68,6 +68,12 @@ impl Visitor for LLVMGenerator {
     fn visit_range(&mut self, start: &crate::ast::Expression, end: &crate::ast::Expression) {
         
     }
+    fn visit_function_call(&mut self, call: &crate::ast::expressions::functioncall::FunctionCall) {
+        
+    }
+    fn visit_function_def(&mut self, def: &crate::ast::expressions::functiondeclaration::FunctionDef) {
+        
+    }
     fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
         for expr in &expr_list.expressions {
             expr.accept(self);

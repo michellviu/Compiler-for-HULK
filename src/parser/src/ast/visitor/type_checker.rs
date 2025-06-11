@@ -167,6 +167,12 @@ impl Visitor for TypeChecker {
         }
         whilee.body.accept(self);
     }
+    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall) {
+        
+    }
+    fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef) {
+        
+    }
 
     // ...
 }

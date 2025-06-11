@@ -2,13 +2,54 @@ use std::str::FromStr;
 use crate::ast;
 use crate::tokens;
 use crate::Expression;
+use crate::ast::expressions::functiondeclaration;
+use crate::ast::expressions::functioncall;
 
 grammar;
 
 pub Program: ast::Program = {
+    <defs:FunctionDefs> <list:ExpressionList> => ast::Program::new_with_functions(defs, list),
     <list:ExpressionList> => ast::Program::new(list),
 };
+FunctionDefs: Vec<ast::Expression> = {
+    <def:FunctionDef> <rest:FunctionDefs> => {
+        let mut v = vec![def];
+        v.extend(rest);
+        v
+    },
+    <def:FunctionDef> => vec![def],
+};
 
+FunctionDef: ast::Expression = {
+    <fkw:FunctionKw> <name:Identifier> <params:FunctionParams> "=>" <body:Expression> ";" =>
+        ast::Expression::FunctionDef(
+            functiondeclaration::FunctionDef::new_expr(name, params, "auto".to_string(), Box::new(body))
+        ),
+    <fkw:FunctionKw> <name:Identifier> <params:FunctionParams> <body:Block> =>
+        ast::Expression::FunctionDef(
+            functiondeclaration::FunctionDef::new_expr(name, params, "auto".to_string(), Box::new(body))
+        ),
+};
+
+
+
+FunctionParams: Vec<functiondeclaration::FunctionParams> = {
+    "(" <list:FunctionParamList> ")" => list,
+    "(" ")" => vec![],
+};
+
+FunctionParamList: Vec<functiondeclaration::FunctionParams> = {
+    <p:FunctionParam> "," <rest:FunctionParamList> => {
+        let mut v = vec![p];
+        v.extend(rest);
+        v
+    },
+    <p:FunctionParam> => vec![p],
+};
+
+FunctionParam: functiondeclaration::FunctionParams = {
+    <id:Identifier> => functiondeclaration::FunctionParams::new(id, "auto".to_string()),
+};
 pub Block: ast::Expression = {
     <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
         ast::Expression::new_block(ast::Block::new(o,e,c))
@@ -35,6 +76,7 @@ SemiColonExpression: ast::Expression = {
     LetExpression,
     PrintExpression,
     DestructiveAssign,
+    <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     // Agrega aquí otras que requieran ';'
 };
 
@@ -95,7 +137,30 @@ FactorOp: tokens::BinOp = {
 };
 
 Term: ast::Expression = {
+    //<fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     <a: Atom> => ast::Expression::new_atom(a),
+};
+FunctionCall: functioncall::FunctionCall = {
+    <at:AtSign> <name:Identifier> <args:CallArgs> =>
+        functioncall::FunctionCall::new(name, args),
+};
+
+AtSign: () = {
+    "@" => (),
+};
+
+CallArgs: Vec<ast::Expression> = {
+    "(" <list:CallArgList> ")" => list,
+    "(" ")" => vec![],
+};
+
+CallArgList: Vec<ast::Expression> = {
+    <e:Expression> "," <rest:CallArgList> => {
+        let mut v = vec![e];
+        v.extend(rest);
+        v
+    },
+    <e:Expression> => vec![e],
 };
 
 pub Atom: ast::Atom = {
@@ -225,7 +290,9 @@ StrLiteral: tokens::Literal = {
 Variable: ast::Atom = {
     <id:Identifier> => ast::Atom::Variable(id),
 };
-
+FunctionKw: tokens::Keyword = {
+    <s: @L> "function" <e: @R> => tokens::Keyword::Function(tokens::Position::new(s, e)),
+};
 Identifier: tokens::Identifier = {
    <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> =>
         tokens::Identifier::new(s, e, n),

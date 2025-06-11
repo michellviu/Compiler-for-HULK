@@ -44,6 +44,12 @@ impl Visitor for AstOptimizer {
     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
         
     }
+    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall) {
+        
+    }
+    fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef) {
+        
+    }
 
     fn visit_program(&mut self, program: &ast::Program) {
         program.expression_list.accept(self);
@@ -147,4 +153,66 @@ impl Visitor for AstOptimizer {
 
     fn visit_while(&mut self, _whilee: &ast::whilee::While) {}
 
+}
+// ...existing code...
+
+use std::collections::HashSet;
+
+/// Preprocesador: marca las llamadas a función con '@' antes del parseo.
+/// - Busca todas las declaraciones de función y las guarda.
+/// - Reemplaza cada llamada a función `foo(` por `@foo(` en el código fuente.
+pub fn preprocess_functions(source: &str) -> String {
+    let mut function_names = HashSet::new();
+    let mut output = String::new();
+
+    // 1. Encuentra todas las declaraciones de función
+    for line in source.lines() {
+        let trimmed = line.trim_start();
+        if let Some(rest) = trimmed.strip_prefix("function ") {
+            if let Some(name) = rest.split('(').next() {
+                let name = name.trim();
+                if !name.is_empty() {
+                    function_names.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    // 2. Recorre el código y reemplaza llamadas a función
+    let chars: Vec<char> = source.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i].is_alphabetic() || chars[i] == '_' {
+            let start = i;
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
+            let ident: String = chars[start..i].iter().collect();
+
+            // Guarda los espacios en una variable temporal
+            let mut j = i;
+            let mut spaces = String::new();
+            while j < chars.len() && chars[j].is_whitespace() {
+                spaces.push(chars[j]);
+                j += 1;
+            }
+
+            let is_function_call = j < chars.len() && chars[j] == '(' && function_names.contains(&ident);
+            let prev = output.trim_end();
+            let is_definition = prev.ends_with("function");
+            if is_function_call && !is_definition {
+                output.push('@');
+                output.push_str(&ident);
+            } else {
+                output.push_str(&ident);
+            }
+            output.push_str(&spaces);
+            i = j;
+        } else {
+            output.push(chars[i]);
+            i += 1;
+        }
+    }
+
+    output
 }

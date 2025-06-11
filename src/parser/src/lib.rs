@@ -12,3 +12,5 @@ pub use errors::{ParseError, parse_program};
 
 pub use grammar::ProgramParser;
 
+pub use ast::expressions::functioncall;
+pub use ast::expressions::functiondeclaration;

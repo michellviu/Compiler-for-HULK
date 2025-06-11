@@ -2,6 +2,7 @@
 use parser::visitor::ast_printer_visitor::AstPrinterVisitor;
 use parser::visitor::LLVMGenerator;
 use parser::visitor::Visitable;
+use parser::visitor::ast_optimizer;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -98,7 +99,9 @@ fn main() {
 
     let source = fs::read_to_string(filename).expect("No se pudo leer el archivo de entrada");
 
-    match parser::parse_program(&source) {
+    let preprocessed = ast_optimizer::preprocess_functions(&source);
+    println!("--- Código preprocesado ---\n{}\n---------------------------", preprocessed);
+    match parser::parse_program(&preprocessed) {
         Ok(program) => {
             let mut type_checker = TypeChecker::new();
             program.accept(&mut type_checker);

@@ -2,7 +2,7 @@ use super::super::{Visitable, Visitor};
 use crate::Expression;
 use crate::tokens::Identifier;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug)]
 pub struct FunctionCall {
     pub funct_name: Identifier,             
     pub arguments: Vec<Expression>,
@@ -16,6 +16,6 @@ impl FunctionCall {
 
 impl Visitable for FunctionCall {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
-        visitor.visit_functcall(self);
+        visitor.visit_function_call(self);
     }
 }
