@@ -1,39 +1,45 @@
 use super::super::{Visitable, Visitor};
-use crate::Expression;
-use crate::tokens::{Keyword, Identifier };
+use crate::tokens::{Keyword};
+use crate::{Atom, Expression};
 
-#[derive(Debug, PartialEq,Clone)]
+#[derive(Debug)]
 pub struct FunctionParams {
-    pub name: Identifier,
+    pub name: Atom,
     pub signature: String,
 }
 
 impl FunctionParams {
-    pub fn new(name: Identifier, signature: String) -> Self {
-        FunctionParams {
-            name,
-            signature,
-        }
+    pub fn new(name: Atom, signature: String) -> Self {
+        FunctionParams { name, signature }
     }
 }
 
-
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug)]
 pub struct FunctionDef {
-    pub name: Identifier,
+    pub function_kw: Keyword,
+    pub name: Atom,
     pub params: Vec<FunctionParams>,
-    pub return_type: String,
+    // pub return_type: Atom,
     pub body: Box<Expression>,
+    pub is_inline: bool,
 }
 
 impl FunctionDef {
-    pub fn new_expr(name: Identifier, params: Vec<FunctionParams>, return_type: String, expr: Box<Expression>) -> Self {
+    pub fn new(
+        function_kw: Keyword,
+        name: Atom,
+        params: Vec<FunctionParams>,
+        // return_type: Atom,
+        expr: Box<Expression>,
+        is_inline: bool,
+    ) -> Self {
         FunctionDef {
+            function_kw,
             name,
             params,
-            return_type,
+            // return_type,
             body: expr,
+            is_inline,
         }
     }
 }

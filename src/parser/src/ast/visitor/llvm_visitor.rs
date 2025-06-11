@@ -65,7 +65,7 @@ impl Visitor for LLVMGenerator {
         program.expression_list.accept(self);
     }
 
-    fn visit_range(&mut self, start: &crate::ast::Expression, end: &crate::ast::Expression) {
+    fn visit_range(&mut self, _start: &crate::ast::Expression, _end: &crate::ast::Expression) {
         
     }
     fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
@@ -89,7 +89,7 @@ impl Visitor for LLVMGenerator {
             Atom::NumberLiteral(lit) => self.visit_literal(lit),
             Atom::BooleanLiteral(lit) => self.visit_literal(lit),
             Atom::StringLiteral(lit) => self.visit_literal(lit),
-            Atom::Variable(identifier) => {
+            Atom::Identifier(identifier) => {
                 let ptr = self
                     .lookup_var(&identifier.name)
                     .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
@@ -114,7 +114,7 @@ impl Visitor for LLVMGenerator {
             BinOp::Assign(_) => {
                 // Lado izquierdo debe ser una variable
                 if let Expression::Atom(atom) = &*binop.left {
-                    if let Atom::Variable(identifier) = &**atom {
+                    if let Atom::Identifier(identifier) = &**atom {
                         let ptr = self
                             .lookup_var(&identifier.name)
                             .unwrap_or_else(|| {
@@ -202,7 +202,7 @@ impl Visitor for LLVMGenerator {
         }
     }
 
-    fn visit_for(&mut self, forr: &crate::forr::For) {
+    fn visit_for(&mut self, _forr: &crate::forr::For) {
         
     }
     fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
@@ -210,7 +210,7 @@ impl Visitor for LLVMGenerator {
 
         for assign in &letin.bindings {
             let var_name = match &assign.variable {
-                Atom::Variable(identifier) => &identifier.name,
+                Atom::Identifier(identifier) => &identifier.name,
                 _ => panic!("Expected variable in assignment"),
             };
             let scope_depth = self.env_stack.len();
@@ -462,5 +462,13 @@ impl Visitor for LLVMGenerator {
             }
         }
         self.last_temp = temp;
+    }
+
+    fn visit_functdef(&mut self, _functdef: &crate::ast::expressions::functiondeclaration::FunctionDef) {
+        // Implementación pendiente
+    }
+    
+    fn visit_functcall(&mut self, _functcall: &crate::ast::expressions::functioncall::FunctionCall) {
+        // Implementación pendiente
     }
 }
