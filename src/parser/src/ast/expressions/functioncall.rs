@@ -1,6 +1,5 @@
 use super::super::{Visitable, Visitor};
 use crate::{Atom, Expression};
-use crate::tokens::Identifier;
 
 #[derive(Debug)]
 pub struct FunctionCall {

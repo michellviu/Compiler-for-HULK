@@ -21,7 +21,6 @@ impl AstPrinterVisitor {
 }
 
 impl Visitor for AstPrinterVisitor {
-
     fn visit_program(&mut self, program: &ast::Program) {
         println!("{}Program", self.pad());
         self.indent += 1;

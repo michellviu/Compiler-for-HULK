@@ -1,5 +1,5 @@
 use super::super::{Visitable, Visitor};
-use crate::tokens::{Identifier, Keyword};
+use crate::tokens::{Keyword};
 use crate::{Atom, Expression};
 
 #[derive(Debug)]
