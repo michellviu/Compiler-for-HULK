@@ -1,15 +1,14 @@
 use super::super::{Visitable, Visitor};
-use crate::Expression;
-use crate::tokens::Identifier;
+use crate::{Atom, Expression};
 
 #[derive(Debug)]
 pub struct FunctionCall {
-    pub funct_name: Identifier,             
+    pub funct_name: Atom,             
     pub arguments: Vec<Expression>,
 }
 
 impl FunctionCall {
-    pub fn new(funct_name: Identifier, arguments: Vec<Expression>) -> Self {
+    pub fn new(funct_name: Atom, arguments: Vec<Expression>) -> Self {
         FunctionCall { funct_name, arguments }
     }
 }

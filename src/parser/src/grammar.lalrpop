@@ -5,11 +5,14 @@ use crate::Expression;
 use crate::ast::expressions::functiondeclaration;
 use crate::ast::expressions::functioncall;
 
+
 grammar;
+
 
 pub Program: ast::Program = {
     <list:ExpressionList> => ast::Program::new(list),
 };
+
 
 FunctionDefs: Vec<ast::Expression> = {
     <def:FunctionDef> <rest:FunctionDefs> => {
@@ -52,12 +55,13 @@ FunctionParam: functiondeclaration::FunctionParams = {
 };
 
 pub Block: ast::Expression = {
+
     <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
         ast::Expression::new_block(ast::Block::new(o,e,c))
     },
 };
 
-pub ExpressionList: ast::ExpressionList = {
+ExpressionList: ast::ExpressionList = {
     <e:Expression> <rest:ExpressionList> => {
         let mut v = vec![e];
         v.extend(rest.expressions);
@@ -68,17 +72,19 @@ pub ExpressionList: ast::ExpressionList = {
     // => ast::ExpressionList::new(vec![]),
 };
 
-pub Expression: ast::Expression = {
+Expression: ast::Expression = {
     <e:SemiColonExpression> ";" => e,
     <e:NoSemiColonExpression> => e,
 };
 
 SemiColonExpression: ast::Expression = {
+
     LetExpression,
     PrintExpression,
     DestructiveAssign,
     <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     FunctionDef,
+
     // Agrega aquí otras que requieran ';'
 };
 
@@ -95,7 +101,7 @@ ForExpression: ast::Expression = {
         ast::Expression::new_for(
             ast::For::new(
                 tk,
-                ast::Expression::new_atom(ast::Atom::Variable(var)), // convierte el identificador a expresión
+                ast::Expression::new_atom(ast::Atom::Identifier(var)), // convierte el identificador a expresión
                 in_kw,
                 iter,
                 body
@@ -112,8 +118,12 @@ WhileExpression: ast::Expression = {
 };
 
 PrintExpression: ast::Expression = {
-    <s: @L> "print" "(" <e:Expression> ")" <e2: @R> => 
+    <s: @L> <pt:PrintToken> "(" <e:Expression> ")" <e2: @R> => 
         ast::Expression::new_print(e, tokens::Position::new(s, e2)),
+};
+
+PrintToken: tokens::Keyword = {
+    <s: @L> "print" <e: @R> => tokens::Keyword::Print(tokens::Position::new(s, e)),
 };
 
 pub Addition: ast::Expression = {
@@ -169,12 +179,9 @@ pub Atom: ast::Atom = {
     <n:NumLiteral> => ast::Atom::NumberLiteral(n),
     <b:BoolLiteral> => ast::Atom::BooleanLiteral(b),
     <s:StrLiteral> => ast::Atom::StringLiteral(s),
-    <v:Variable> => v,
+    <id:Identifier> => ast::Atom::Identifier(id),
     <g:GroupedExpression> => g,
-};
 
-TerminatedExpression: ast::Expression = {
-    <e:Expression> ";" => e,
 };
 
 IfElseExpression: ast::Expression = {
@@ -221,8 +228,8 @@ LetExpression: ast::Expression = {
 };
 
 Assignment: ast::Assignment = {
-    <id:Variable> <o:EqualOperator> <e:Expression> =>
-        ast::Assignment::new(id, o, e),
+    <id:Identifier> <o:EqualOperator> <e:Expression> =>
+        ast::Assignment::new(ast::Atom::Identifier(id), o, e),
 };
 
 EqualOperator: tokens::BinOp = {
@@ -289,15 +296,17 @@ StrLiteral: tokens::Literal = {
     ),
 };
 
+
 Variable: ast::Atom = {
     <id:Identifier> => ast::Atom::Variable(id),
 };
 FunctionKw: tokens::Keyword = {
     <s: @L> "function" <e: @R> => tokens::Keyword::Function(tokens::Position::new(s, e)),
 };
+
 Identifier: tokens::Identifier = {
    <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> =>
-        tokens::Identifier::new(s, e, n),
+       tokens::Identifier::new(s, e, n),
 };
 
 If: tokens::Keyword = {
@@ -356,11 +365,100 @@ AssignDestructiveOperator: tokens::BinOp = {
     <s: @L> ":=" <e: @R> => tokens::BinOp::Assign(tokens::Position::new(s, e)),
 };
 
-DestructiveAssign: ast::Expression = {
-    <v:Variable> <op:AssignDestructiveOperator> <e:Expression> => ast::Expression::new_binary_op(
-        ast::Expression::new_atom(v),
-        e,
-        op
-    ),
+Arrow: tokens::SpecialOp = {
+    <s: @L> "=>" <e: @R> => tokens::SpecialOp::Arrow(tokens::Position::new(s, e)),
 };
 
+Function: tokens::Keyword = {
+    <s: @L> "function" <e: @R> => tokens::Keyword::Function(tokens::Position::new(s, e)),
+};
+
+
+ParamList: Vec<FunctionParams> = {
+    <id:Identifier> "," <rest:ParamList> => {
+        let mut v = vec![FunctionParams::new(ast::Atom::Identifier(id),"Rellene con el tipo".to_string())];
+        v.extend(rest);
+        v
+    },
+    <id:Identifier> => vec![FunctionParams::new(ast::Atom::Identifier(id), "Rellene con el tipo".to_string())],
+};
+
+ParamListOpt: Vec<FunctionParams> = {
+    <params:ParamList> => params,
+    => vec![],
+};
+
+
+FunctionDef: ast::Expression = {
+    <kw:Function> <name:Identifier> "(" <params:ParamListOpt> ")" <arrow:Arrow> <body:Expression> =>
+        ast::Expression::new_functiondef(
+            ast::expressions::functiondeclaration::FunctionDef::new(kw, ast::Atom::Identifier(name), params, Box::new(body), true)
+        ),
+    <kw:Function> <name:Identifier> "(" <params:ParamListOpt> ")" <body:Expression> =>
+        ast::Expression::new_functiondef(
+            ast::expressions::functiondeclaration::FunctionDef::new(kw, ast::Atom::Identifier(name), params, Box::new(body), false)
+        ),
+};
+
+// FunctionCallorDestructiveAssign: ast::Expression = {
+
+//      <i:Identifier> <s:Sufix> => match s {
+//         ast::Sufix::FunctionCall(args) =>
+//             ast::Expression::new_functioncall(
+//                 ast::functioncall::FunctionCall::new(i, args)
+//             ),
+//         ast::Sufix::DestructiveAssign(op,e) =>
+//             ast::Expression::new_binary_op(
+//                 ast::Expression::new_atom(i),
+//                 *e,
+//                 op
+//             ),
+//     },
+// };
+
+// Sufix: ast::Sufix ={
+//     <op:AssignDestructiveOperator> <e:Expression> => 
+//         ast::Sufix::DestructiveAssign(op,Box::new(e)),
+     
+
+//     "(" <args:ArgListOpt> ")" =>
+//         ast::Sufix::FunctionCall(
+//            args
+//         ),
+// }
+
+DestructiveAssign: ast::Expression = {
+    <v:Atom> <op:AssignDestructiveOperator> <e:Expression> => match v {
+        ast::Atom::Identifier(id) => ast::Expression::new_binary_op(
+            ast::Expression::new_atom(ast::Atom::Identifier(id)),
+            e,
+            op
+        ),
+        _ => panic!("Destructive assignment solo puede hacerse a un identificador"),
+    },
+};
+
+
+FunctionCall: ast::FunctionCall = {
+    <id:Identifier> <op:OpenParen> <args:ArgListOpt> <cp:CloseParen> =>
+            ast::functioncall::FunctionCall::new(
+                ast::Atom::Identifier(id),
+                args
+            ),
+        
+       
+};
+
+ArgListOpt: Vec<ast::Expression> = {
+    <args:ArgList> => args,
+    => vec![],
+};
+
+ArgList: Vec<ast::Expression> = {
+    <e:Expression> "," <rest:ArgList> => {
+        let mut v = vec![e];
+        v.extend(rest);
+        v
+    },
+    <e:Expression> => vec![e],
+};

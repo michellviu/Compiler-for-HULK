@@ -42,12 +42,13 @@ impl Visitor for AstOptimizer {
         
     }
     fn visit_range(&mut self, _start: &ast::Expression, _end: &ast::Expression) {
-        
+
     }
     fn visit_function_call(&mut self, _call: &ast::expressions::functioncall::FunctionCall) {
         
     }
     fn visit_function_def(&mut self, _def: &ast::expressions::functiondeclaration::FunctionDef) {
+
         
     }
 
@@ -152,6 +153,14 @@ impl Visitor for AstOptimizer {
     fn visit_unary_op(&mut self, _unary_op: &ast::expressions::unaryoperation::UnaryOp) {}
 
     fn visit_while(&mut self, _whilee: &ast::whilee::While) {}
+
+    fn visit_functdef(&mut self, _functdef: &ast::expressions::functiondeclaration::FunctionDef) {
+        // Nothing to optimize in function definitions
+    }
+
+    fn visit_functcall(&mut self, _functcall: &ast::expressions::functioncall::FunctionCall) {
+        // Nothing to optimize in function calls
+    }
 
 }
 // ...existing code...

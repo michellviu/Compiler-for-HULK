@@ -65,6 +65,7 @@ impl Visitor for LLVMGenerator {
         program.expression_list.accept(self);
     }
 
+
     fn visit_range(&mut self, _start: &crate::ast::Expression, _end: &crate::ast::Expression) {}
     fn visit_function_call(&mut self, _call: &crate::ast::expressions::functioncall::FunctionCall) {
     }
@@ -72,6 +73,7 @@ impl Visitor for LLVMGenerator {
         &mut self,
         _def: &crate::ast::expressions::functiondeclaration::FunctionDef,
     ) {
+
     }
     fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
         for expr in &expr_list.expressions {
@@ -94,7 +96,7 @@ impl Visitor for LLVMGenerator {
             Atom::NumberLiteral(lit) => self.visit_literal(lit),
             Atom::BooleanLiteral(lit) => self.visit_literal(lit),
             Atom::StringLiteral(lit) => self.visit_literal(lit),
-            Atom::Variable(identifier) => {
+            Atom::Identifier(identifier) => {
                 let ptr = self
                     .lookup_var(&identifier.name)
                     .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
@@ -119,7 +121,7 @@ impl Visitor for LLVMGenerator {
             BinOp::Assign(_) => {
                 // Lado izquierdo debe ser una variable
                 if let Expression::Atom(atom) = &*binop.left {
-                    if let Atom::Variable(identifier) = &**atom {
+                    if let Atom::Identifier(identifier) = &**atom {
                         let ptr = self
                             .lookup_var(&identifier.name)
                             .unwrap_or_else(|| {
@@ -213,7 +215,9 @@ impl Visitor for LLVMGenerator {
 
         // Extrae el nombre de la variable de control
         let var_name = if let Expression::Atom(atom) = &*forr.var {
+
             if let Atom::Variable(identifier) = &**atom {
+
                 &identifier.name
             } else {
                 panic!("For variable must be an identifier");
@@ -232,8 +236,10 @@ impl Visitor for LLVMGenerator {
         if let Expression::Range(start, end) = &*forr.iterable {
             start.accept(self);
             let start_temp = self.last_temp.clone();
+
             self.code
                 .push(format!("store i32 {}, i32* %{}", start_temp, unique_var));
+
             // Evaluamos el end
             end.accept(self);
             let end_temp = self.last_temp.clone();
@@ -250,8 +256,10 @@ impl Visitor for LLVMGenerator {
                 .insert(var_name.to_string(), format!("%{}", unique_var));
 
             // Salto a condición
+
             self.code
                 .push(format!("br label %{cond}", cond = &loop_cond[1..]));
+
 
             // Condición
             self.code.push(format!("{}:", &loop_cond[1..]));
@@ -297,8 +305,10 @@ impl Visitor for LLVMGenerator {
                 inc = inc,
                 var = unique_var
             ));
+
             self.code
                 .push(format!("br label %{cond}", cond = &loop_cond[1..]));
+
 
             // Exit
             self.code.push(format!("{}:", &loop_exit[1..]));
@@ -312,7 +322,7 @@ impl Visitor for LLVMGenerator {
 
         for assign in &letin.bindings {
             let var_name = match &assign.variable {
-                Atom::Variable(identifier) => &identifier.name,
+                Atom::Identifier(identifier) => &identifier.name,
                 _ => panic!("Expected variable in assignment"),
             };
             let scope_depth = self.env_stack.len();
@@ -575,5 +585,13 @@ impl Visitor for LLVMGenerator {
             }
         }
         self.last_temp = temp;
+    }
+
+    fn visit_functdef(&mut self, _functdef: &crate::ast::expressions::functiondeclaration::FunctionDef) {
+        // Implementación pendiente
+    }
+    
+    fn visit_functcall(&mut self, _functcall: &crate::ast::expressions::functioncall::FunctionCall) {
+        // Implementación pendiente
     }
 }

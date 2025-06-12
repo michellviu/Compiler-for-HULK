@@ -18,6 +18,8 @@ pub trait Visitor {
     fn visit_ifelse(&mut self, ifelse: &ast::expressions::ifelse::IfElse);
     fn visit_group(&mut self, group: &ast::atoms::group::Group);
     fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp);
+    fn visit_functdef(&mut self, functdef: &ast::expressions::functiondeclaration::FunctionDef);
+    fn visit_functcall(&mut self, functcall: &ast::expressions::functioncall::FunctionCall);
     fn visit_for(&mut self, forr: &forr::For);
     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression);
     fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall);

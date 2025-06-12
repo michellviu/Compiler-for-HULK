@@ -20,6 +20,11 @@ pub use unaryoperation::UnaryOp;
 pub mod forr;
 pub use forr::For;
 
+pub mod functiondeclaration;
+pub use functiondeclaration::FunctionDef;
+
+pub mod functioncall;
+pub use functioncall::FunctionCall;
 
 pub mod functioncall;
 pub use functioncall::FunctionCall;

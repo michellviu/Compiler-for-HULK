@@ -1,3 +1,4 @@
+
 let x=3 in {
 
     print(x);
@@ -29,5 +30,3 @@ function operate(x, y) {
 function suma(x,y) => x+y;;
 
 operate(suma(x,y);,3);
-
-
