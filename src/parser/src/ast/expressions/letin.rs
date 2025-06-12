@@ -5,7 +5,7 @@ use crate::BinOp;
 use crate::Expression;
 use crate::tokens::*;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Assignment {
     pub variable: Atom,
     pub op: BinOp,
@@ -31,7 +31,7 @@ impl Visitable for Assignment {
         visitor.visit_assignment(self);
     }
 }
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct LetIn {
     pub let_token: Keyword,
     pub bindings: Vec<Assignment>,

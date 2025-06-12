@@ -3,7 +3,7 @@ use super::position::Position;
 use super::super::Visitable;
 use super::super::Visitor;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Literal {
     Number(i32, Position),
     Str(String, Position),

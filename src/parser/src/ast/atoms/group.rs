@@ -3,7 +3,7 @@ use crate::tokens::GroupingOperator;
 use super::super::Visitable;
 use super::super::Visitor;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Group{
     pub open_paren: GroupingOperator,
     pub close_paren: GroupingOperator,

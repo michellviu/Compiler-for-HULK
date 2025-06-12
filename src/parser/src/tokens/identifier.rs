@@ -3,6 +3,7 @@ use super::position::Position;
 use super::super::Visitable;
 use super::super::Visitor;
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct Identifier {
     pub name: String,
     pub position: Position,

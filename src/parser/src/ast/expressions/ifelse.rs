@@ -2,7 +2,7 @@ use super::super::{Visitable, Visitor};
 use crate::Expression;
 use crate::tokens::Keyword;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct IfElse {
     pub if_kw: Keyword,
     pub condition: Box<Expression>,

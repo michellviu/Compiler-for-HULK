@@ -169,7 +169,7 @@ pub fn preprocess_functions(source: &str) -> String {
     for line in source.lines() {
         let trimmed = line.trim_start();
         if let Some(rest) = trimmed.strip_prefix("function ") {
-            if let Some(name) = rest.split('(').next() {
+            if let Some(name) = rest.split(':').next() {
                 let name = name.trim();
                 if !name.is_empty() {
                     function_names.insert(name.to_string());

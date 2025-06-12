@@ -3,7 +3,7 @@ use crate::Expression;
 use super::super::Visitable;
 use super::super::Visitor;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct While {
     pub while_token: Keyword,
     pub cond: Box<Expression>,

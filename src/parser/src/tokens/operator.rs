@@ -1,6 +1,6 @@
 use std::fmt;
 use super::position::Position;
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum BinOp {
     // Binary operators
     Mul(Position),
@@ -51,7 +51,7 @@ impl fmt::Display for BinOp {
         write!(f, "{}", s)
     }
 }
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum UnaryOp {
     Plus(Position),
     Minus(Position),
@@ -90,7 +90,7 @@ impl fmt::Display for SpecialOp {
         write!(f, "{}", s)
     }
 }
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum GroupingOperator {
     OpenParen(Position),
     CloseParen(Position),

@@ -3,7 +3,7 @@ use crate::Expression;
 use super::super::Visitable;
 use super::super::Visitor;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct For {
     pub for_token: Keyword,
     pub var: Box<Expression>,

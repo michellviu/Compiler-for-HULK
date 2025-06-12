@@ -1,7 +1,7 @@
 use super::super::*;
 // use super::letin::Assignment;
 use crate::tokens::*;
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Atom {
     NumberLiteral(Literal),
     BooleanLiteral(Literal),

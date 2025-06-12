@@ -3,7 +3,7 @@ use crate::tokens::GroupingOperator;
 use super::super::Visitable;
 use super::super::Visitor;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct ExpressionList {
     pub expressions: Vec<Expression>,
 }
@@ -22,7 +22,7 @@ impl Visitable for ExpressionList {
     }
     
 }
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Block {
     pub open_brace: GroupingOperator,
     pub close_brace: GroupingOperator,

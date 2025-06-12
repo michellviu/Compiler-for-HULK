@@ -8,23 +8,23 @@ endif
 
 CLANG = clang
 SCRIPT = script.hulk
-BUILD_DIR = build
+BUILD_DIR = hulk
 
-.PHONY: build run clean
+.PHONY: compile execute clean
 
-build:
+compile:
 	@if [ ! -f $(SCRIPT) ]; then echo "ERROR: Falta $(SCRIPT) en el directorio actual." && exit 1; fi
 	@mkdir -p $(BUILD_DIR)
 	@echo "Compilando script.hulk..."
 	@cargo run -- $(SCRIPT)
 
-run: build
+execute: clean compile
 	@echo "Ejecutando compilador Hulk..."
 	@echo "Generando ejecutable con clang..."
-	@$(CLANG) build/script.ll -o build/script$(EXE)
+	@$(CLANG) hulk/script.ll -o hulk/script$(EXE)
 	@$(if $(findstring Windows_NT,$(OS)), \
 		$(BUILD_DIR)\script.exe $(SCRIPT), \
 		$(BUILD_DIR)/script $(SCRIPT))
 
 clean:
-	@-rm -rf $(BUILD_DIR)
+	@if [ -d $(BUILD_DIR) ]; then rm -rf $(BUILD_DIR); fi

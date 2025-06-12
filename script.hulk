@@ -19,15 +19,15 @@ let x=3 in {
     }
 };
 
-function operate(x, y) {
+function operate:number(x:number, y:number) {
     print(x + y);
     print(x - y);
     print(x * y);
     print(x / y);
 };
 
-function suma(x,y) => x+y;;
+function suma:number(x:number,y:number) => x+y;;
 
-operate(suma(x,y);,3);
+operate(suma(2,3),3)
 
 

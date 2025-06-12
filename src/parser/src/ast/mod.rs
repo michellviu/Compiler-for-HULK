@@ -10,6 +10,7 @@ pub use expressions::*;
 pub mod visitor;
 pub use visitor::Visitor;
 pub use visitor::Visitable;
+pub use visitor::types::Type;
 
 pub mod program;
 pub use program::Program;

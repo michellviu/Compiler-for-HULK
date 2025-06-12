@@ -5,7 +5,7 @@ use crate::Atom;
 use crate::BinOp;
 use crate::tokens;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Expression {
     BinaryOp(BinaryOp),
     Atom(Box<Atom>),

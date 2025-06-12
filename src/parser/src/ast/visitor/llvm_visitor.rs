@@ -1,3 +1,5 @@
+use super::symbol_table::{SymbolInfo, SymbolTable};
+use super::types::Type;
 use crate::ast::atoms::atom::Atom;
 use crate::ast::expressions::binoperation::BinaryOp;
 use crate::ast::expressions::expressions::Expression;
@@ -9,24 +11,28 @@ use std::collections::HashMap;
 
 pub struct LLVMGenerator {
     pub code: Vec<String>,
+    pub functions: Vec<String>,
     pub temp_count: usize,
     pub last_temp: String,
     pub string_globals: Vec<String>,
     pub env_stack: Vec<HashMap<String, String>>,
     pub string_sizes: HashMap<String, usize>,
     pub string_label_count: usize,
+    pub symbol_table: SymbolTable,
 }
 
 impl LLVMGenerator {
-    pub fn new() -> Self {
+    pub fn new(symbol_table: SymbolTable) -> Self {
         LLVMGenerator {
             code: Vec::new(),
+            functions: Vec::new(),
             temp_count: 0,
             last_temp: String::new(),
             string_globals: Vec::new(),
             env_stack: vec![HashMap::new()],
             string_sizes: HashMap::new(),
             string_label_count: 0,
+            symbol_table,
         }
     }
     fn next_temp(&mut self) -> String {
@@ -66,13 +72,134 @@ impl Visitor for LLVMGenerator {
     }
 
     fn visit_range(&mut self, _start: &crate::ast::Expression, _end: &crate::ast::Expression) {}
-    fn visit_function_call(&mut self, _call: &crate::ast::expressions::functioncall::FunctionCall) {
+
+    fn visit_function_call(&mut self, call: &crate::ast::expressions::functioncall::FunctionCall) {
+        let (ret_type, param_types) = match self.symbol_table.lookup(&call.funct_name.name) {
+            Some(SymbolInfo::Function {
+                return_type,
+                param_types,
+            }) => (return_type.clone(), param_types.clone()),
+            _ => panic!("'{}' no es una función", call.funct_name.name),
+        };
+
+        // Evalúa los argumentos y guarda los temporales
+        let mut arg_temps = Vec::new();
+        for arg in &call.arguments {
+            arg.accept(self);
+            arg_temps.push(self.last_temp.clone());
+        }
+
+        // Prepara la lista de argumentos para el call con el tipo correcto
+        let args_llvm = arg_temps
+            .iter()
+            .zip(param_types.iter())
+            .map(|(t, ty)| match ty {
+                Type::Number => format!("i32 {}", t),
+                Type::Boolean => format!("i1 {}", t),
+                Type::String => format!("i8* {}", t),
+                Type::Custom(_) => format!("i32 {}", t), // Ajusta según tu representación
+                _ => panic!("Tipo de argumento no soportado"),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        // Determina el tipo de retorno LLVM
+        let ret_llvm = match ret_type {
+            Type::Number => "i32",
+            Type::Boolean => "i1",
+            Type::String => "i8*",
+            Type::Custom(_) => "i32", // Ajusta según tu representación
+            _ => panic!("Tipo de retorno no soportado"),
+        };
+
+        // Llama a la función y guarda el resultado en un temporal
+        let temp = self.next_temp();
+        self.code.push(format!(
+            "{temp} = call {ret_llvm} @{name}({args})",
+            temp = temp,
+            ret_llvm = ret_llvm,
+            name = call.funct_name.name,
+            args = args_llvm
+        ));
+        self.last_temp = temp.clone();
     }
+
     fn visit_function_def(
         &mut self,
-        _def: &crate::ast::expressions::functiondeclaration::FunctionDef,
+        def: &crate::ast::expressions::functiondeclaration::FunctionDef,
     ) {
+        let mut fn_code = Vec::new();
+        let fn_name = &def.name.name;
+
+        let (ret_type, param_types) = match self.symbol_table.lookup(fn_name) {
+            Some(SymbolInfo::Function {
+                return_type,
+                param_types,
+            }) => (return_type.clone(), param_types.clone()),
+            _ => panic!(
+                "Función '{}' no encontrada en la tabla de símbolos",
+                fn_name
+            ),
+        };
+
+        let params_llvm = param_types
+            .iter()
+            .enumerate()
+            .map(|(i, ty)| match ty {
+                Type::Number => format!("i32 %p{i}"),
+                Type::Boolean => format!("i1 %p{i}"),
+                Type::String => format!("i8* %p{i}"),
+                Type::Custom(_) => format!("i32 %p{i}"), // Ajusta si tienes structs
+                _ => panic!("Tipo de parámetro no soportado"),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let ret_llvm = match ret_type {
+            Type::Number => "i32".to_string(),
+            Type::Boolean => "i1".to_string(),
+            Type::String => "i8*".to_string(),
+            Type::Custom(name) => format!("%{}*", name), // Ajusta si tienes structs
+            _ => panic!("Tipo de retorno no soportado"),
+        };
+
+        fn_code.push(format!(
+            "define {} @{}({}) {{",
+            ret_llvm, fn_name, params_llvm
+        ));
+
+        self.env_stack.push(HashMap::new());
+        for (i, param) in def.params.iter().enumerate() {
+            let unique_var = format!("{}_{}", param.name.name, self.env_stack.len());
+            let llvm_type = match &param.signature {
+                Type::Number => "i32",
+                Type::Boolean => "i1",
+                Type::String => "i8*",
+                Type::Custom(_) => "i32", // Ajusta si tienes structs
+                _ => panic!("Tipo de parámetro no soportado"),
+            };
+            fn_code.push(format!("%{unique_var} = alloca {llvm_type}"));
+            fn_code.push(format!(
+                "store {llvm_type} %p{i}, {llvm_type}* %{unique_var}"
+            ));
+            self.env_stack
+                .last_mut()
+                .unwrap()
+                .insert(param.name.name.clone(), format!("%{unique_var}"));
+        }
+
+        // Guarda el código generado temporalmente
+        let old_code = std::mem::replace(&mut self.code, Vec::new());
+        def.body.accept(self);
+        fn_code.extend(self.code.drain(..));
+        fn_code.push(format!("ret {} {}", ret_llvm, self.last_temp));
+        self.env_stack.pop();
+        fn_code.push("}".to_string());
+        self.code = old_code;
+
+        self.functions.extend(fn_code);
     }
+
     fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
         for expr in &expr_list.expressions {
             expr.accept(self);
@@ -80,13 +207,7 @@ impl Visitor for LLVMGenerator {
     }
 
     fn visit_expression(&mut self, expr: &Expression) {
-        match expr {
-            Expression::BinaryOp(binop) => binop.accept(self),
-            Expression::Atom(atom) => atom.accept(self),
-            Expression::Print(exp, _pos) => self.visit_print(exp),
-            Expression::LetIn(letin) => letin.accept(self),
-            _ => {}
-        }
+        expr.accept(self);
     }
 
     fn visit_atom(&mut self, atom: &Atom) {
@@ -100,12 +221,14 @@ impl Visitor for LLVMGenerator {
                     .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
                     .clone();
                 let temp = self.next_temp();
+        
                 self.code.push(format!(
                     "{temp} = load i32, i32* {ptr}",
                     temp = temp,
                     ptr = ptr
                 ));
                 self.last_temp = temp;
+
             }
             Atom::Group(group) => {
                 group.accept(self);
@@ -486,7 +609,7 @@ impl Visitor for LLVMGenerator {
             then_labels.push(self.next_temp());
         }
 
-        let then_label = self.next_temp(); // if
+        let then_label = self.next_temp();
         let else_label = self.next_temp();
         let end_label = self.next_temp();
 
@@ -508,12 +631,13 @@ impl Visitor for LLVMGenerator {
         // THEN principal
         self.code.push(format!("{}:", &then_label[1..]));
         ifelse.then_branch.accept(self);
+
         self.code
             .push(format!("br label %{end}", end = &end_label[1..]));
+    
 
         // ELIFs
         for (i, (_kw, cond, branch)) in ifelse.elif_branches.iter().enumerate() {
-            // Condición del elif
             self.code.push(format!("{}:", &cond_labels[i][1..]));
             cond.accept(self);
             let cond_temp = self.last_temp.clone();
@@ -528,11 +652,12 @@ impl Visitor for LLVMGenerator {
                 then_block = &then_labels[i][1..],
                 next = &next_cond[1..]
             ));
-            // THEN de este elif
             self.code.push(format!("{}:", &then_labels[i][1..]));
             branch.accept(self);
+           
             self.code
                 .push(format!("br label %{end}", end = &end_label[1..]));
+
         }
 
         // ELSE
@@ -540,11 +665,15 @@ impl Visitor for LLVMGenerator {
         if let Some(else_branch) = &ifelse.else_branch {
             else_branch.accept(self);
         }
+
         self.code
             .push(format!("br label %{end}", end = &end_label[1..]));
 
-        // END
+
+        // END con phi del tipo correcto
         self.code.push(format!("{}:", &end_label[1..]));
+
+   
     }
 
     fn visit_group(&mut self, group: &crate::ast::atoms::group::Group) {

@@ -2,7 +2,7 @@ use super::Expression;
 use crate::tokens::BinOp;
 use super::super::Visitor;
 use super::super::Visitable;
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct BinaryOp{
    pub left: Box<Expression>,
    pub right: Box<Expression>,

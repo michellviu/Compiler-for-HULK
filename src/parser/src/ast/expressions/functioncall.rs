@@ -2,7 +2,7 @@ use super::super::{Visitable, Visitor};
 use crate::Expression;
 use crate::tokens::Identifier;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct FunctionCall {
     pub funct_name: Identifier,             
     pub arguments: Vec<Expression>,

@@ -21,13 +21,13 @@ FunctionDefs: Vec<ast::Expression> = {
 };
 
 FunctionDef: ast::Expression = {
-    <fkw:FunctionKw> <name:Identifier> <params:FunctionParams> "=>" <body:Expression> ";" =>
+    <fkw:FunctionKw> <name:Identifier>":"<rt:Type><params:FunctionParams> "=>" <body:Expression> ";" =>
         ast::Expression::FunctionDef(
-            functiondeclaration::FunctionDef::new_expr(name, params, "auto".to_string(), Box::new(body))
+            functiondeclaration::FunctionDef::new_expr(name, params, rt, Box::new(body))
         ),
-    <fkw:FunctionKw> <name:Identifier> <params:FunctionParams> <body:Block> =>
+    <fkw:FunctionKw> <name:Identifier>":"<rt:Type> <params:FunctionParams> <body:Block> =>
         ast::Expression::FunctionDef(
-            functiondeclaration::FunctionDef::new_expr(name, params, "auto".to_string(), Box::new(body))
+            functiondeclaration::FunctionDef::new_expr(name, params, rt, Box::new(body))
         ),
 };
 
@@ -48,7 +48,14 @@ FunctionParamList: Vec<functiondeclaration::FunctionParams> = {
 };
 
 FunctionParam: functiondeclaration::FunctionParams = {
-    <id:Identifier> => functiondeclaration::FunctionParams::new(id, "auto".to_string()),
+    <id:Identifier> ":" <t:Type> => functiondeclaration::FunctionParams::new(id, t),
+};
+
+Type: ast::Type = {
+    "string" => ast::Type::String,
+    "number" => ast::Type::Number,
+    "bool"   => ast::Type::Boolean,
+    <id:Identifier> => ast::Type::Custom(id.name.clone()),
 };
 
 pub Block: ast::Expression = {
@@ -77,7 +84,7 @@ SemiColonExpression: ast::Expression = {
     LetExpression,
     PrintExpression,
     DestructiveAssign,
-    <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+   // <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     FunctionDef,
     // Agrega aquí otras que requieran ';'
 };
@@ -139,9 +146,10 @@ FactorOp: tokens::BinOp = {
 };
 
 Term: ast::Expression = {
-    //<fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+    <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     <a: Atom> => ast::Expression::new_atom(a),
 };
+
 FunctionCall: functioncall::FunctionCall = {
     <at:AtSign> <name:Identifier> <args:CallArgs> =>
         functioncall::FunctionCall::new(name, args),

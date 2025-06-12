@@ -1,13 +1,13 @@
 // use parser::grammar::ProgramParser;
+use parser::visitor::ast_optimizer;
 use parser::visitor::ast_printer_visitor::AstPrinterVisitor;
+use parser::visitor::semantic_type_checker::SemanticTypeChecker;
 use parser::visitor::LLVMGenerator;
 use parser::visitor::Visitable;
-use parser::visitor::ast_optimizer;
 use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use parser::visitor::type_checker::TypeChecker;
 
 fn _strip_comments(source: &str) -> Result<String, String> {
     let mut result = String::with_capacity(source.len());
@@ -100,14 +100,17 @@ fn main() {
     let source = fs::read_to_string(filename).expect("No se pudo leer el archivo de entrada");
 
     let preprocessed = ast_optimizer::preprocess_functions(&source);
-    println!("--- Código preprocesado ---\n{}\n---------------------------", preprocessed);
+    println!(
+        "--- Código preprocesado ---\n{}\n---------------------------",
+        preprocessed
+    );
     match parser::parse_program(&preprocessed) {
         Ok(program) => {
-            let mut type_checker = TypeChecker::new();
-            program.accept(&mut type_checker);
+            let mut checker = SemanticTypeChecker::new();
+            program.accept(&mut checker);
 
-            if !type_checker.errors.is_empty() {
-                for err in type_checker.errors {
+            if !checker.errors.is_empty() {
+                for err in checker.errors {
                     eprintln!("Type error: {}", err);
                 }
                 std::process::exit(1);
@@ -116,11 +119,11 @@ fn main() {
             let mut printer = AstPrinterVisitor::new();
             program.accept(&mut printer);
 
-            let mut llvm_gen = LLVMGenerator::new();
+            let mut llvm_gen = LLVMGenerator::new(checker.symbol_table.clone());
             program.accept(&mut llvm_gen);
 
             // Escribir LLVM IR en archivo
-            let mut file = File::create("build/script.ll").unwrap();
+            let mut file = File::create("hulk/script.ll").unwrap();
             let header = LLVMGenerator::llvm_header();
             let (before_main, after_main) = header.split_at(
                 header
@@ -132,6 +135,9 @@ fn main() {
                 writeln!(file, "{}", line).unwrap();
             }
             for line in llvm_gen.string_globals {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in llvm_gen.functions {
                 writeln!(file, "{}", line).unwrap();
             }
             for line in after_main {

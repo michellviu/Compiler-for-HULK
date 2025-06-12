@@ -3,7 +3,7 @@ use crate::tokens;
 use crate::Visitable;
 use crate::Visitor;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct UnaryOp {
     pub op: tokens::UnaryOp,
     pub expr: Box<Expression>,
