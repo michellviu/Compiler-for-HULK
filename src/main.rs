@@ -116,8 +116,8 @@ fn main() {
                 std::process::exit(1);
             }
 
-            let mut printer = AstPrinterVisitor::new();
-            program.accept(&mut printer);
+            // let mut printer = AstPrinterVisitor::new();
+            // program.accept(&mut printer);
 
             let mut llvm_gen = LLVMGenerator::new(checker.symbol_table.clone());
             program.accept(&mut llvm_gen);
