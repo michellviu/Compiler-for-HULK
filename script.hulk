@@ -1,7 +1,33 @@
+let x=3 in {
+
+    print(x);
+    x:=1;
+    if(x%2==0)
+    {
+        print("Par");
+    }
+    elif(x%2==1)
+    {
+        print("Impar");
+    }
+    else
+      print("No");
+    while(x<=10)
+    {
+        print(x);
+        x:=x+1;
+    }
+};
+
 function operate(x, y) {
     print(x + y);
     print(x - y);
     print(x * y);
     print(x / y);
-}
-operate(2,3);
+};
+
+function suma(x,y) => x+y;;
+
+operate(suma(x,y);,3);
+
+

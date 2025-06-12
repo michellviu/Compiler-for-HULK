@@ -1,6 +1,6 @@
 use super::super::{Visitable, Visitor};
 use crate::Expression;
-use crate::tokens::{Keyword, Identifier };
+use crate::tokens::{Identifier };
 
 #[derive(Debug)]
 pub struct FunctionParams {

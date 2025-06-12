@@ -8,9 +8,9 @@ use crate::ast::expressions::functioncall;
 grammar;
 
 pub Program: ast::Program = {
-    <defs:FunctionDefs> <list:ExpressionList> => ast::Program::new_with_functions(defs, list),
     <list:ExpressionList> => ast::Program::new(list),
 };
+
 FunctionDefs: Vec<ast::Expression> = {
     <def:FunctionDef> <rest:FunctionDefs> => {
         let mut v = vec![def];
@@ -50,6 +50,7 @@ FunctionParamList: Vec<functiondeclaration::FunctionParams> = {
 FunctionParam: functiondeclaration::FunctionParams = {
     <id:Identifier> => functiondeclaration::FunctionParams::new(id, "auto".to_string()),
 };
+
 pub Block: ast::Expression = {
     <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
         ast::Expression::new_block(ast::Block::new(o,e,c))
@@ -77,6 +78,7 @@ SemiColonExpression: ast::Expression = {
     PrintExpression,
     DestructiveAssign,
     <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+    FunctionDef,
     // Agrega aquí otras que requieran ';'
 };
 

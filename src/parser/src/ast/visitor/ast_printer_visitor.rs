@@ -1,5 +1,3 @@
-use std::collections::btree_map::Range;
-
 use crate::ast;
 use crate::ast::Expression;
 use crate::ast::atoms::atom::Atom;
@@ -30,9 +28,9 @@ impl Visitor for AstPrinterVisitor {
         println!("{}Program", self.pad());
         self.indent += 1;
         // Imprime las funciones declaradas
-        for func in &program.functions {
-            func.accept(self);
-        }
+        // for func in &program.functions {
+        //     func.accept(self);
+        // }
         // Imprime la lista de expresiones globales
         program.expression_list.accept(self);
         self.indent -= 1;

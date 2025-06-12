@@ -1,8 +1,8 @@
 use crate::ast;
-use crate::ast::expressions::binoperation::BinaryOp;
+// use crate::ast::expressions::binoperation::BinaryOp;
 use crate::ast::visitor::{Visitable, Visitor};
 use crate::tokens;
-use crate::tokens::BinOp;
+// use crate::tokens::BinOp;
 use crate::visitor::Type;
 
 use std::collections::HashMap;
@@ -45,13 +45,13 @@ impl TypeChecker {
 }
 
 impl Visitor for TypeChecker {
-    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
+    fn visit_atom(&mut self, _atom: &ast::atoms::atom::Atom) {
         
     }
-    fn visit_block(&mut self, block: &ast::expressions::block::Block) {
+    fn visit_block(&mut self, _block: &ast::expressions::block::Block) {
         
     }
-    fn visit_expression(&mut self, expr: &ast::Expression) {
+    fn visit_expression(&mut self, _expr: &ast::Expression) {
         
     }
     fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
@@ -59,16 +59,16 @@ impl Visitor for TypeChecker {
             expr.accept(self);
         }
     }
-    fn visit_for(&mut self, forr: &ast::forr::For) {
+    fn visit_for(&mut self, _forr: &ast::forr::For) {
         
     }
-    fn visit_group(&mut self, group: &ast::atoms::group::Group) {
+    fn visit_group(&mut self, _group: &ast::atoms::group::Group) {
         
     }
-    fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
+    fn visit_identifier(&mut self, _identifier: &tokens::Identifier) {
         
     }
-    fn visit_literal(&mut self, literal: &tokens::Literal) {
+    fn visit_literal(&mut self, _literal: &tokens::Literal) {
         
     }
     fn visit_print(&mut self, expr: &ast::Expression) {
@@ -77,10 +77,10 @@ impl Visitor for TypeChecker {
     fn visit_program(&mut self, program: &ast::Program) {
         program.expression_list.accept(self);
     }
-    fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
+    fn visit_range(&mut self, _start: &ast::Expression, _end: &ast::Expression) {
         
     }
-    fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp) {
+    fn visit_unary_op(&mut self, _unary_op: &ast::expressions::unaryoperation::UnaryOp) {
         
     }
 
@@ -167,10 +167,10 @@ impl Visitor for TypeChecker {
         }
         whilee.body.accept(self);
     }
-    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall) {
+    fn visit_function_call(&mut self, _call: &ast::expressions::functioncall::FunctionCall) {
         
     }
-    fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef) {
+    fn visit_function_def(&mut self, _def: &ast::expressions::functiondeclaration::FunctionDef) {
         
     }
 
@@ -199,8 +199,8 @@ impl TypeChecker {
             },
             Expression::BinaryOp(binop) => {
                 use crate::tokens::BinOp;
-                let left = self.infer_expr_type(&binop.left);
-                let right = self.infer_expr_type(&binop.right);
+                let _left = self.infer_expr_type(&binop.left);
+                let _right = self.infer_expr_type(&binop.right);
                 match &binop.operator {
                     BinOp::Plus(_) | BinOp::Minus(_) | BinOp::Mul(_) | BinOp::Div(_) | BinOp::Mod(_) => Type::Number,
                     BinOp::EqualEqual(_) | BinOp::NotEqual(_) | BinOp::Greater(_)
