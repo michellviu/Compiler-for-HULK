@@ -1,33 +1,23 @@
-let x=3 in {
-
-    print(x);
-    x:=1;
-    if(x%2==0)
-    {
-        print("Par");
+function rec:number(n:number){
+    if(n<=1){
+        print(n);
     }
-    elif(x%2==1)
-    {
-        print("Impar");
-    }
-    else
-      print("No");
-    while(x<=10)
-    {
-        print(x);
-        x:=x+1;
+    else{
+        print(n);
+        rec(n-1)  
     }
 };
 
-function operate:number(x:number, y:number) {
-    print(x + y);
-    print(x - y);
-    print(x * y);
-    print(x / y);
+function fib:number(n:number){
+    if(n<=1){
+        n
+    }
+    else{
+        fib(n-1) + fib(n-2)
+    }
 };
 
-function suma:number(x:number,y:number) => x+y;;
 
-operate(suma(2,3),3)
+print(fib(4));
 
 

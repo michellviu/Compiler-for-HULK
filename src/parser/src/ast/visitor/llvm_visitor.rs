@@ -221,14 +221,13 @@ impl Visitor for LLVMGenerator {
                     .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
                     .clone();
                 let temp = self.next_temp();
-        
+
                 self.code.push(format!(
                     "{temp} = load i32, i32* {ptr}",
                     temp = temp,
                     ptr = ptr
                 ));
                 self.last_temp = temp;
-
             }
             Atom::Group(group) => {
                 group.accept(self);
@@ -600,80 +599,56 @@ impl Visitor for LLVMGenerator {
     }
 
     fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
-        let mut cond_labels = Vec::new();
-        let mut then_labels = Vec::new();
+        // Genera etiquetas únicas para cada bloque
+        let then_label = format!("then{}", self.temp_count);
+        let else_label = format!("else{}", self.temp_count);
+        let merge_label = format!("merge{}", self.temp_count);
+        self.temp_count += 1;
 
-        // Etiquetas para cada condición y bloque de cada elif
-        for _ in &ifelse.elif_branches {
-            cond_labels.push(self.next_temp());
-            then_labels.push(self.next_temp());
-        }
-
-        let then_label = self.next_temp();
-        let else_label = self.next_temp();
-        let end_label = self.next_temp();
-
-        // IF principal
+        // Evalúa la condición principal
         ifelse.condition.accept(self);
         let cond_temp = self.last_temp.clone();
-        let first_elif = if !cond_labels.is_empty() {
-            &cond_labels[0]
-        } else {
-            &else_label
-        };
+
+        // Salto condicional
         self.code.push(format!(
-            "br i1 {cond}, label %{then}, label %{elif}",
-            cond = cond_temp,
-            then = &then_label[1..],
-            elif = &first_elif[1..]
+            "br i1 {}, label %{}, label %{}",
+            cond_temp, then_label, else_label
         ));
 
-        // THEN principal
-        self.code.push(format!("{}:", &then_label[1..]));
+        // THEN branch
+        self.code.push(format!("{}:", then_label));
         ifelse.then_branch.accept(self);
+        let then_result = self.last_temp.clone();
+        self.code.push(format!("br label %{}", merge_label));
 
-        self.code
-            .push(format!("br label %{end}", end = &end_label[1..]));
-    
-
-        // ELIFs
-        for (i, (_kw, cond, branch)) in ifelse.elif_branches.iter().enumerate() {
-            self.code.push(format!("{}:", &cond_labels[i][1..]));
-            cond.accept(self);
-            let cond_temp = self.last_temp.clone();
-            let next_cond = if i + 1 < cond_labels.len() {
-                &cond_labels[i + 1]
+        // ELSE branch (puede ser otro ifelse, o un bloque, o nada)
+        self.code.push(format!("{}:", else_label));
+        let else_result = if let Some(else_branch) = &ifelse.else_branch {
+            // Si el else es otro IfElse (elif), lo procesamos recursivamente
+            if let Expression::IfElse(elif) = &**else_branch {
+                self.visit_ifelse(elif);
+                self.last_temp.clone()
             } else {
-                &else_label
-            };
-            self.code.push(format!(
-                "br i1 {cond}, label %{then_block}, label %{next}",
-                cond = cond_temp,
-                then_block = &then_labels[i][1..],
-                next = &next_cond[1..]
-            ));
-            self.code.push(format!("{}:", &then_labels[i][1..]));
-            branch.accept(self);
-           
-            self.code
-                .push(format!("br label %{end}", end = &end_label[1..]));
+                // Es un bloque normal
+                else_branch.accept(self);
+                self.last_temp.clone()
+            }
+        } else {
+            // Si no hay else, valor por defecto
+            let zero_temp = self.next_temp();
+            self.code.push(format!("{} = add i32 0, 0", zero_temp));
+            zero_temp
+        };
+        self.code.push(format!("br label %{}", merge_label));
 
-        }
-
-        // ELSE
-        self.code.push(format!("{}:", &else_label[1..]));
-        if let Some(else_branch) = &ifelse.else_branch {
-            else_branch.accept(self);
-        }
-
-        self.code
-            .push(format!("br label %{end}", end = &end_label[1..]));
-
-
-        // END con phi del tipo correcto
-        self.code.push(format!("{}:", &end_label[1..]));
-
-   
+        // MERGE
+        self.code.push(format!("{}:", merge_label));
+        let phi_temp = self.next_temp();
+        self.code.push(format!(
+            "{} = phi i32 [ {}, %{} ], [ {}, %{} ]",
+            phi_temp, then_result, then_label, else_result, else_label
+        ));
+        self.last_temp = phi_temp;
     }
 
     fn visit_group(&mut self, group: &crate::ast::atoms::group::Group) {
