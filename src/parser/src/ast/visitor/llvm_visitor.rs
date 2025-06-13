@@ -67,6 +67,18 @@ impl LLVMGenerator {
 }
 
 impl Visitor for LLVMGenerator {
+    fn visit_access_type_prop(&mut self, access: &crate::ast::expressions::accesstypesprop::AccessTypeProp) {
+        
+    }
+    fn visit_declaration_function(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_instanting_types(&mut self, inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes) {
+        
+    }
+    fn visit_type_declaration(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
     fn visit_program(&mut self, program: &Program) {
         program.expression_list.accept(self);
     }

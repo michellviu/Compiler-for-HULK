@@ -22,6 +22,12 @@ pub trait Visitor {
     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression);
     fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall);
     fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef);
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes);
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes);
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp);
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes);
+    
+    
 }
 
 pub trait Visitable {

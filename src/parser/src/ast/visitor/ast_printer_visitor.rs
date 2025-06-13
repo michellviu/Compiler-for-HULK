@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use crate::ast;
 use crate::ast::Expression;
 use crate::ast::atoms::atom::Atom;
@@ -23,6 +25,76 @@ impl AstPrinterVisitor {
 }
 
 impl Visitor for AstPrinterVisitor {
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp) {
+    println!("{}TypeMethodAccess: {}", self.pad(), access.properties.name);
+    self.indent += 1;
+    println!("{}Instance:", self.pad());
+    self.indent += 1;
+    access.referenced_type.accept(self);
+    self.indent -= 1;
+    if !access.params.is_empty() {
+        println!("{}Args:", self.pad());
+        self.indent += 1;
+        for arg in &access.params {
+            arg.accept(self);
+        }
+        self.indent -= 1;
+    }
+    self.indent -= 1;
+}
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+    self.visit_type_declaration(decl);
+}
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
+    println!("{}TypeInstantiation: {}", self.pad(), inst.referenced_type.name);
+    self.indent += 1;
+    if !inst.params.is_empty() {
+        println!("{}Args:", self.pad());
+        self.indent += 1;
+        for arg in &inst.params {
+            arg.accept(self);
+        }
+        self.indent -= 1;
+    }
+    self.indent -= 1;
+}
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+    println!(">>> Entrando a visit_type_declaration");   
+    println!("{}TypeDeclaration: {}", self.pad(), decl.name_types.name);
+    self.indent += 1;
+
+    // Imprime parámetros de tipo
+    if !decl.build.is_empty() {
+        println!("{}TypeParams:", self.pad());
+        self.indent += 1;
+        for param in &decl.build {
+            println!("{}{}", self.pad(), param.name);
+        }
+        self.indent -= 1;
+    }
+
+    // Imprime propiedades
+    if !decl.properties.is_empty() {
+        println!("{}Properties:", self.pad());
+        self.indent += 1;
+        for prop in &decl.properties {
+            prop.accept(self);
+        }
+        self.indent -= 1;
+    }
+
+    // Imprime métodos
+    if !decl.functions.is_empty() {
+        println!("{}Methods:", self.pad());
+        self.indent += 1;
+        for func in &decl.functions {
+            func.accept(self);
+        }
+        self.indent -= 1;
+    }
+
+    self.indent -= 1;
+}
 
     fn visit_program(&mut self, program: &ast::Program) {
         println!("{}Program", self.pad());
@@ -58,6 +130,11 @@ impl Visitor for AstPrinterVisitor {
             Expression::Range(start, end) => self.visit_range(start, end),
             Expression::FunctionCall(call) => call.accept(self),      
             Expression::FunctionDef(def) => def.accept(self),  
+            Expression::TypeDeclaration(decl) => decl.accept(self),
+            Expression::TypeInstantiation(inst) => inst.accept(self),
+            Expression::TypeMethodAccess(access) => access.accept(self),
+            Expression::TypePropertyAccess(access) => access.accept(self),
+              
         }
     }
 

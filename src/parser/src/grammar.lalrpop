@@ -4,6 +4,10 @@ use crate::tokens;
 use crate::Expression;
 use crate::ast::expressions::functiondeclaration;
 use crate::ast::expressions::functioncall;
+use crate::ast::expressions::declarationtypes;
+use crate::ast::expressions::instantiatingtypes;
+use crate::ast::expressions::accesstypesprop;
+use crate::ast::expressions::letin;
 
 grammar;
 
@@ -34,7 +38,8 @@ FunctionDef: ast::Expression = {
 
 
 FunctionParams: Vec<functiondeclaration::FunctionParams> = {
-    "(" <list:FunctionParamList> ")" => list,
+    "(" <list:FunctionParamList> ")" => {println!("Reconocido paréntesis de apertura y cierre en parámetros");
+    list},
     "(" ")" => vec![],
 };
 
@@ -86,6 +91,7 @@ SemiColonExpression: ast::Expression = {
     DestructiveAssign,
    // <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     FunctionDef,
+    TypeDeclaration,
     // Agrega aquí otras que requieran ';'
 };
 
@@ -95,6 +101,8 @@ NoSemiColonExpression: ast::Expression = {
     ForExpression,
     BooleanExpr,
     Block,
+    // TypeInstantiation,
+    // TypeMethodAccess,
     // Agrega aquí otras que no requieran ';'
 };
 ForExpression: ast::Expression = {
@@ -134,11 +142,22 @@ PlusMinusBinary: tokens::BinOp = {
 };
 
 Factor: ast::Expression = {
-    <l:Factor> <op:FactorOp> <r:Term> => ast::Expression::new_binary_op(l, r, op),
+    <l:Factor> <op:FactorOp> <r:PrimaryExpr> => ast::Expression::new_binary_op(l, r, op),
     RangeExpression,
-    Term,
+    PrimaryExpr
 };
-
+PrimaryExpr: ast::Expression = {
+    <pe:PrimaryExpr> "." <m:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeMethodAccess(
+            Box::new(accesstypesprop::AccessTypeProp::new_expr(pe, m, args))
+        ),
+    <tk:NewKw> <name:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeInstantiation(
+            Box::new(instantiatingtypes::InstantingTypes::new_expr(name, args))
+        ),
+    <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+    <a:Atom> => ast::Expression::new_atom(a),
+};
 FactorOp: tokens::BinOp = {
    <s: @L> "*" <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
    <s: @L> "/" <e: @R> => tokens::BinOp::Div(tokens::Position::new(s, e)),
@@ -372,3 +391,101 @@ DestructiveAssign: ast::Expression = {
     ),
 };
 
+TypeDeclaration: ast::Expression = {
+    <tk:TypeKw> <name:Identifier> <params:TypeParamsOpt> <body:TypeBody> =>
+        ast::Expression::TypeDeclaration(
+            Box::new(declarationtypes::Declarationtypes::new_expr(name, body.0, body.1, params))
+        ),
+};
+
+TypeKw: tokens::Keyword = {
+    <s: @L> "type" <e: @R> => tokens::Keyword::Type(tokens::Position::new(s, e)),
+};
+
+TypeParamsOpt: Vec<functiondeclaration::FunctionParams> = {
+    "(" <list:TypeParamList> ")" => list,
+    => vec![],
+};
+
+TypeParamList: Vec<functiondeclaration::FunctionParams> = {
+    <p:TypeParam> "," <rest:TypeParamList> => {
+        let mut v = vec![p];
+        v.extend(rest);
+        v
+    },
+    <p:TypeParam> => vec![p],
+};
+
+TypeParam: functiondeclaration::FunctionParams = {
+    <id:Identifier> ":" <t:Type> => functiondeclaration::FunctionParams::new(id, t),
+};
+
+TypeBody: (Vec<letin::Assignment>, Vec<functiondeclaration::FunctionDef>) = {
+    <o:OpenBrace> <list:TypeBodyList> <c:CloseBrace> => list,
+};
+
+TypeBodyList: (Vec<letin::Assignment>, Vec<functiondeclaration::FunctionDef>) = {
+    <a:TypeAttribute> <rest:TypeBodyList> => {
+        let (mut attrs, mut funcs) = rest;
+        attrs.insert(0, a);
+        (attrs, funcs)
+    },
+    <f:TypeMethod> <rest:TypeBodyList> => {
+        let (attrs, mut funcs) = rest;
+        funcs.insert(0, f);
+        (attrs, funcs)
+    },
+    => (vec![], vec![]),
+};
+
+TypeAttribute: letin::Assignment = {
+    <id:Identifier> "=" <e:Expression> ";" => 
+        letin::Assignment::new(
+            ast::Atom::Variable(id),
+            tokens::BinOp::Assign(tokens::Position::new(0, 0)),
+            e
+        ),
+};
+TypeMethod: functiondeclaration::FunctionDef = {
+    <name:Identifier> <params:FunctionParams> "=>" <body:Expression> ";" => {
+        functiondeclaration::FunctionDef::new_expr(
+            name,
+            params,
+            ast::Type::Number, // O infiere el tipo si puedes
+            Box::new(body)
+        )
+    },
+    <name:Identifier> <params:FunctionParams> <body:Block> => {
+        functiondeclaration::FunctionDef::new_expr(
+            name,
+            params,
+            ast::Type::Number, // O infiere el tipo si puedes
+            Box::new(body)
+        )
+    },
+    <fkw:FunctionKw> <name:Identifier> ":" <rt:Type> <params:FunctionParams> "=>" <body:Expression> ";" => {
+        println!("Reconocido método largo: {:?}", name);
+        functiondeclaration::FunctionDef::new_expr(
+            name,
+            params,
+            rt,
+            Box::new(body)
+        )
+    }
+};
+TypeInstantiation: ast::Expression = {
+    <tk:NewKw> <name:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeInstantiation(
+            Box::new(instantiatingtypes::InstantingTypes::new_expr(name, args))
+        ),
+};
+
+NewKw: tokens::Keyword = {
+    <s: @L> "new" <e: @R> => tokens::Keyword::New(tokens::Position::new(s, e)),
+};
+TypeMethodAccess: ast::Expression = {
+    <instance:Expression> "." <method:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeMethodAccess(
+            Box::new(accesstypesprop::AccessTypeProp::new_expr(instance, method, args))
+        ),
+};

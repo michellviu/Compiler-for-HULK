@@ -12,7 +12,8 @@ pub enum Keyword {
     While(Position),
     For(Position),
     Function(Position),
-    
+    Type(Position), 
+    New(Position),  
 }
 
 impl Display for Keyword {
@@ -27,6 +28,8 @@ impl Display for Keyword {
             Keyword::Elif(_) => "elif",
             Keyword::For(_) => "for",
             Keyword::Function(_) => "function",
+            Keyword::Type(_) => "type",
+            Keyword::New(_) => "new",
         };
         write!(f, "{}", s)
     }

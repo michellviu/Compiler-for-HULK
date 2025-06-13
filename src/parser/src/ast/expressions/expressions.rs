@@ -4,6 +4,10 @@ use super::*;
 use crate::Atom;
 use crate::BinOp;
 use crate::tokens;
+use super::declarationtypes::Declarationtypes;
+use super::instantiatingtypes::InstantingTypes;
+use super::accesstypesprop::AccessTypeProp;
+
 
 #[derive(Debug,Clone)]
 pub enum Expression {
@@ -19,10 +23,26 @@ pub enum Expression {
     Range(Box<Expression>, Box<Expression>),
     FunctionCall(functioncall::FunctionCall),
     FunctionDef(functiondeclaration::FunctionDef),
+    TypeDeclaration(Box<Declarationtypes>),
+    TypeInstantiation(Box<InstantingTypes>),
+    TypeMethodAccess(Box<AccessTypeProp>),
+    TypePropertyAccess(Box<accesstypesprop::AccessTypeProp>),
     
 }
 
 impl Expression {
+    pub fn new_type_property_access(acc: AccessTypeProp) -> Self {
+        Expression::TypePropertyAccess(Box::new(acc))
+    }
+    pub fn new_type_declaration(decl: Declarationtypes) -> Self {
+        Expression::TypeDeclaration(Box::new(decl))
+    }
+    pub fn new_type_instantiation(inst: InstantingTypes) -> Self {
+        Expression::TypeInstantiation(Box::new(inst))
+    }
+    pub fn new_type_method_access(acc: AccessTypeProp) -> Self {
+        Expression::TypeMethodAccess(Box::new(acc))
+    }
     pub fn new_range(start: Expression, end: Expression) -> Self {
         Expression::Range(Box::new(start), Box::new(end))
     }
@@ -83,6 +103,10 @@ impl Visitable for Expression {
             }
             Expression::FunctionCall(call) => call.accept(visitor),
             Expression::FunctionDef(def) => def.accept(visitor),
+            Expression::TypeDeclaration(decl) => decl.accept(visitor),
+            Expression::TypeInstantiation(inst) => inst.accept(visitor),
+            Expression::TypeMethodAccess(acc) => acc.accept(visitor),
+            Expression::TypePropertyAccess(acc) => acc.accept(visitor),
         }
     }
 }

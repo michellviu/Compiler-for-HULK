@@ -3,7 +3,7 @@ use super::super::Visitor;
 use crate::tokens::{Identifier };
 use crate::Expression;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct InstantingTypes {
     pub referenced_type: Identifier,
     pub params: Vec<Expression>,

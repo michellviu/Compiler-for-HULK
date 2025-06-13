@@ -45,6 +45,18 @@ impl TypeChecker {
 }
 
 impl Visitor for TypeChecker {
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp) {
+        
+    }
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
+        
+    }
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
     fn visit_atom(&mut self, _atom: &ast::atoms::atom::Atom) {
         
     }
