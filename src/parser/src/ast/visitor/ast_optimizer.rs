@@ -190,10 +190,54 @@ pub fn preprocess_functions(source: &str) -> String {
         }
     }
 
-    // 2. Recorre el código y reemplaza llamadas a función
+    // 2. Recorre el código y reemplaza llamadas a función y métodos
     let chars: Vec<char> = source.chars().collect();
     let mut i = 0;
     while i < chars.len() {
+        // Detectar punto para posibles llamadas a métodos
+        if i > 0 && chars[i] == '.' && i + 1 < chars.len() {
+            output.push('.');
+            i += 1;
+            
+            // Saltar espacios después del punto
+            while i < chars.len() && chars[i].is_whitespace() {
+                output.push(chars[i]);
+                i += 1;
+            }
+            
+            // Si encontramos un identificador después del punto
+            if i < chars.len() && (chars[i].is_alphabetic() || chars[i] == '_') {
+                let start = i;
+                while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                    i += 1;
+                }
+                
+                // Extraer el nombre del método
+                let method_name: String = chars[start..i].iter().collect();
+                
+                // Saltar espacios después del nombre del método
+                let mut j = i;
+                let mut spaces = String::new();
+                while j < chars.len() && chars[j].is_whitespace() {
+                    spaces.push(chars[j]);
+                    j += 1;
+                }
+                
+                // Si después hay un paréntesis, es una llamada a método
+                if j < chars.len() && chars[j] == '(' {
+                    // Añadir el sigil antes del nombre del método
+                    output.push('$');
+                }
+                
+                // Añadir el nombre del método y los espacios
+                output.push_str(&method_name);
+                output.push_str(&spaces);
+                i = j;
+                continue;
+            }
+        }
+        
+        // Código existente para marcar llamadas a función con '@'
         if chars[i].is_alphabetic() || chars[i] == '_' {
             let start = i;
             while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {

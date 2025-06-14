@@ -54,6 +54,7 @@ FunctionParamList: Vec<functiondeclaration::FunctionParams> = {
 
 FunctionParam: functiondeclaration::FunctionParams = {
     <id:Identifier> ":" <t:Type> => functiondeclaration::FunctionParams::new(id, t),
+    <id:Identifier> => functiondeclaration::FunctionParams::new(id, ast::Type::Unknown),
 };
 
 Type: ast::Type = {
@@ -147,16 +148,25 @@ Factor: ast::Expression = {
     PrimaryExpr
 };
 PrimaryExpr: ast::Expression = {
-    <pe:PrimaryExpr> "." <m:Identifier> <args:CallArgs> =>
+    <pe:PrimaryExpr> "." <sigil:MethodSigil> <m:Identifier> <args:CallArgs> => 
         ast::Expression::TypeMethodAccess(
             Box::new(accesstypesprop::AccessTypeProp::new_expr(pe, m, args))
         ),
+   <pe:PrimaryExpr> "." <m:Identifier> => 
+    ast::Expression::new_type_property_access(
+        accesstypesprop::AccessTypeProp::new_property_expr(pe, m)
+    ),
     <tk:NewKw> <name:Identifier> <args:CallArgs> =>
         ast::Expression::TypeInstantiation(
             Box::new(instantiatingtypes::InstantingTypes::new_expr(name, args))
         ),
     <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
     <a:Atom> => ast::Expression::new_atom(a),
+};
+
+MemberSuffix: (tokens::Identifier, Option<Vec<ast::Expression>>) = {
+    <m:Identifier> <args:CallArgs> => (m, Some(args)),
+    <m:Identifier> => (m, None),
 };
 FactorOp: tokens::BinOp = {
    <s: @L> "*" <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
@@ -318,6 +328,9 @@ StrLiteral: tokens::Literal = {
 
 Variable: ast::Atom = {
     <id:Identifier> => ast::Atom::Variable(id),
+    <s: @L> "self" <e: @R> => ast::Atom::Variable(
+        tokens::Identifier::new(s, e, "self")
+    ),
 };
 FunctionKw: tokens::Keyword = {
     <s: @L> "function" <e: @R> => tokens::Keyword::Function(tokens::Position::new(s, e)),
@@ -384,9 +397,9 @@ AssignDestructiveOperator: tokens::BinOp = {
 };
 
 DestructiveAssign: ast::Expression = {
-    <v:Variable> <op:AssignDestructiveOperator> <e:Expression> => ast::Expression::new_binary_op(
-        ast::Expression::new_atom(v),
-        e,
+    <lhs:PrimaryExpr> <op:AssignDestructiveOperator> <rhs:Expression> => ast::Expression::new_binary_op(
+        lhs,
+        rhs,
         op
     ),
 };
@@ -425,14 +438,14 @@ TypeBody: (Vec<letin::Assignment>, Vec<functiondeclaration::FunctionDef>) = {
 };
 
 TypeBodyList: (Vec<letin::Assignment>, Vec<functiondeclaration::FunctionDef>) = {
-    <a:TypeAttribute> <rest:TypeBodyList> => {
-        let (mut attrs, mut funcs) = rest;
-        attrs.insert(0, a);
-        (attrs, funcs)
-    },
     <f:TypeMethod> <rest:TypeBodyList> => {
         let (attrs, mut funcs) = rest;
         funcs.insert(0, f);
+        (attrs, funcs)
+    },
+    <a:TypeAttribute> <rest:TypeBodyList> => {
+        let (mut attrs, funcs) = rest;
+        attrs.insert(0, a);
         (attrs, funcs)
     },
     => (vec![], vec![]),
@@ -447,7 +460,7 @@ TypeAttribute: letin::Assignment = {
         ),
 };
 TypeMethod: functiondeclaration::FunctionDef = {
-    <name:Identifier> <params:FunctionParams> "=>" <body:Expression> ";" => {
+    <name:Identifier> <params:FunctionParams> "=>" <body:TypeMethodBody> ";" => {
         functiondeclaration::FunctionDef::new_expr(
             name,
             params,
@@ -488,4 +501,11 @@ TypeMethodAccess: ast::Expression = {
         ast::Expression::TypeMethodAccess(
             Box::new(accesstypesprop::AccessTypeProp::new_expr(instance, method, args))
         ),
+};
+MethodSigil: () = {
+    "$" => (),
+};
+TypeMethodBody: ast::Expression = {
+    <e:SemiColonExpression> => e,
+    <e:NoSemiColonExpression> => e,
 };
