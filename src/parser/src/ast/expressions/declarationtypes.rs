@@ -29,6 +29,6 @@ impl Declarationtypes {
 
 impl Visitable for Declarationtypes {
     fn accept<V: Visitor>(&self, visitor: &mut V) {
-        visitor.visit_declaration_function(self);
+        visitor.visit_type_declaration(self);
     }
 }

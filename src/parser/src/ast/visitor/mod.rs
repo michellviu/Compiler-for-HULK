@@ -11,7 +11,6 @@ pub use visitor::Visitable;
 pub use ast_printer_visitor::AstPrinterVisitor;
 pub use llvm_visitor::LLVMGenerator;
 pub use ast_optimizer::AstOptimizer;
-pub use type_checker::TypeChecker;
 pub use types::Type;
 pub use symbol_table::SymbolTable;
 pub use semantic_type_checker::SemanticTypeChecker;

@@ -38,16 +38,13 @@ impl AstOptimizer {
 }
 
 impl Visitor for AstOptimizer {
-    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp) {
+    fn visit_access_type_prop(&mut self, _access: &ast::expressions::accesstypesprop::AccessTypeProp) {
         
     }
-    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
+    fn visit_instanting_types(&mut self, _inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
         
     }
-    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
-        
-    }
-    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+    fn visit_type_declaration(&mut self, _decl: &ast::expressions::declarationtypes::Declarationtypes) {
         
     }
     fn visit_for(&mut self, _forr: &ast::forr::For) {

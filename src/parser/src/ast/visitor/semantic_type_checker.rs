@@ -1,3 +1,4 @@
+use super::symbol_table::TypeInfo;
 use super::symbol_table::{SymbolInfo, SymbolTable};
 use super::types::Type;
 use crate::ast::visitor::visitor::Visitor;
@@ -106,18 +107,51 @@ impl SemanticTypeChecker {
 }
 
 impl Visitor for SemanticTypeChecker {
-    fn visit_access_type_prop(&mut self, access: &crate::ast::expressions::accesstypesprop::AccessTypeProp) {
-        
+
+
+    fn visit_access_type_prop(
+        &mut self,
+        _access: &crate::ast::expressions::accesstypesprop::AccessTypeProp,
+    ) {
     }
-    fn visit_declaration_function(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
-        
+
+    fn visit_instanting_types(
+        &mut self,
+        inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes,
+    ) {
     }
-    fn visit_instanting_types(&mut self, inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes) {
-        
+
+    fn visit_type_declaration(
+        &mut self,
+        decl: &crate::ast::expressions::declarationtypes::Declarationtypes,
+    ) {
+        let type_name = decl.name_types.name.clone();
+
+        // Infieres los tipos de las propiedades aquí
+        let properties = decl
+            .properties
+            .iter()
+            .map(|prop| {
+                let prop_name = match &prop.variable {
+                    crate::atom::Atom::Variable(var) => var.name.clone(),
+                    _ => panic!("Expected variable in property declaration"),
+                };
+                let prop_type = self.infer_expr_type(&prop.body); // O usa Type::from_assignment(prop)
+                (prop_name, prop_type)
+            })
+            .collect::<Vec<(String, Type)>>();
+
+        let methods = decl
+            .functions
+            .iter()
+            .map(|func| (func.name.name.clone(), func.clone()))
+            .collect();
+
+        self.symbol_table
+            .insert_type(type_name.clone(), properties, methods);
+
     }
-    fn visit_type_declaration(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
-        
-    }
+
     fn visit_program(&mut self, program: &Program) {
         program.expression_list.accept(self);
     }
