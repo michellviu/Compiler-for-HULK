@@ -45,6 +45,18 @@ impl SemanticTypeChecker {
     fn infer_expr_type(&mut self, expr: &Expression) -> Type {
         match expr {
             Expression::Atom(atom) => self.type_of_atom(atom),
+            Expression::IfElse(ifelse) => {
+                ifelse.condition.accept(self);
+                ifelse.then_branch.accept(self);
+                for (_elif_kw, condition, branch) in &ifelse.elif_branches {
+                    condition.accept(self);
+                    branch.accept(self);
+                }
+                if let Some(else_branch) = &ifelse.else_branch {
+                    else_branch.accept(self);
+                }
+                Type::Unknown // El tipo de IfElse puede ser más complejo
+            }
             Expression::FunctionCall(call) => {
                 if let Some(SymbolInfo::Function { return_type, .. }) =
                     self.symbol_table.lookup(&call.funct_name.name)
