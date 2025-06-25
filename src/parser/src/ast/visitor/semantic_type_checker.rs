@@ -8,13 +8,15 @@ use crate::tokens::*;
 pub struct SemanticTypeChecker {
     pub symbol_table: SymbolTable,
     pub errors: Vec<String>,
+    pub input: String, // NUEVO
 }
 
 impl SemanticTypeChecker {
-    pub fn new() -> Self {
+    pub fn new(input: String) -> Self {
         SemanticTypeChecker {
             symbol_table: SymbolTable::new(),
             errors: Vec::new(),
+            input,
         }
     }
 
@@ -34,12 +36,18 @@ impl SemanticTypeChecker {
                     var_type.clone()
                 } else {
                     self.errors
-                        .push(format!("Variable '{}' no declarada", ident.name));
+                        .push(format!("Línea {}: Variable '{}' no declarada", 
+                                     ident.position.start_line(&self.input), ident.name));
                     Type::Unknown
                 }
             }
             _ => Type::Unknown,
         }
+    }
+
+    #[allow(dead_code)]
+    fn get_position_info(&self, position: &Position) -> String {
+        format!("Línea {}", position.start + 1)
     }
 
     fn infer_expr_type(&mut self, expr: &Expression) -> Type {
@@ -52,7 +60,8 @@ impl SemanticTypeChecker {
                     return_type.clone()
                 } else {
                     self.errors
-                        .push(format!("Función '{}' no declarada", call.funct_name.name));
+                        .push(format!("Línea {}: Función '{}' no declarada", 
+                                     call.funct_name.position.start_line(&self.input), call.funct_name.name));
                     Type::Unknown
                 }
             }
@@ -62,37 +71,40 @@ impl SemanticTypeChecker {
                 let right_ty = self.infer_expr_type(&binop.right);
                 use crate::tokens::BinOp;
                 match &binop.operator {
-                    BinOp::Plus(_)
-                    | BinOp::Minus(_)
-                    | BinOp::Mul(_)
-                    | BinOp::Div(_)
-                    | BinOp::Mod(_) => {
+                    BinOp::Plus(pos)
+                    | BinOp::Minus(pos)
+                    | BinOp::Mul(pos)
+                    | BinOp::Div(pos)
+                    | BinOp::Mod(pos) => {
                         if left_ty != Type::Number || right_ty != Type::Number {
                             self.errors
-                                .push("Operación aritmética requiere números".to_string());
+                                .push(format!("Línea {}: Operación aritmética requiere números", 
+                                             pos.start_line(&self.input)));
                         }
                         Type::Number
                     }
-                    BinOp::EqualEqual(_)
-                    | BinOp::NotEqual(_)
-                    | BinOp::Greater(_)
-                    | BinOp::Less(_)
-                    | BinOp::GreaterEqual(_)
-                    | BinOp::LessEqual(_)
-                    | BinOp::AndAnd(_)
-                    | BinOp::OrOr(_) => {
+                    BinOp::EqualEqual(pos)
+                    | BinOp::NotEqual(pos)
+                    | BinOp::Greater(pos)
+                    | BinOp::Less(pos)
+                    | BinOp::GreaterEqual(pos)
+                    | BinOp::LessEqual(pos)
+                    | BinOp::AndAnd(pos)
+                    | BinOp::OrOr(pos) => {
                         if left_ty != right_ty {
                             self.errors
-                                .push("Comparación entre tipos incompatibles".to_string());
+                                .push(format!("Línea {}: Comparación entre tipos incompatibles", 
+                                             pos.start_line(&self.input)));
                         }
                         Type::Boolean
                     }
-                    BinOp::ConcatString(_) => {
+                    BinOp::ConcatString(pos) => {
                         if !(left_ty == Type::String || left_ty == Type::Number)
                             || !(right_ty == Type::String || right_ty == Type::Number)
                         {
                             self.errors
-                                .push("Concatenación requiere string o número".to_string());
+                                .push(format!("Línea {}: Concatenación requiere string o número", 
+                                             pos.start_line(&self.input)));
                         }
                         Type::String
                     }
@@ -103,19 +115,48 @@ impl SemanticTypeChecker {
             _ => Type::Unknown,
         }
     }
+
+    fn get_expression_line(&self, expr: &Expression) -> Option<usize> {
+        match expr {
+            Expression::Atom(atom) => match &**atom {
+                Atom::Variable(ident) => Some(ident.position.start_line(&self.input)),
+                _ => None,
+            },
+            Expression::BinaryOp(binop) => match &binop.operator {
+                BinOp::Plus(pos)
+                | BinOp::Minus(pos)
+                | BinOp::Mul(pos)
+                | BinOp::Div(pos)
+                | BinOp::Mod(pos)
+                | BinOp::EqualEqual(pos)
+                | BinOp::NotEqual(pos)
+                | BinOp::Greater(pos)
+                | BinOp::Less(pos)
+                | BinOp::GreaterEqual(pos)
+                | BinOp::LessEqual(pos)
+                | BinOp::AndAnd(pos)
+                | BinOp::OrOr(pos)
+                | BinOp::ConcatString(pos)
+                | BinOp::Assign(pos) => Some(pos.start_line(&self.input)),
+                _ => None,
+            },
+            Expression::FunctionCall(call) => Some(call.funct_name.position.start_line(&self.input)),
+            _ => None,
+        }
+    }
 }
 
 impl Visitor for SemanticTypeChecker {
-    fn visit_access_type_prop(&mut self, access: &crate::ast::expressions::accesstypesprop::AccessTypeProp) {
+    fn visit_access_type_prop(&mut self, _access: &crate::ast::expressions::accesstypesprop::AccessTypeProp) {
         
     }
-    fn visit_declaration_function(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+    fn visit_declaration_function(&mut self, _decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
         
     }
-    fn visit_instanting_types(&mut self, inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes) {
+    fn visit_instanting_types(&mut self, _inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes) {
         
     }
-    fn visit_type_declaration(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+    fn visit_type_declaration(&mut self, _decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
         
     }
     fn visit_program(&mut self, program: &Program) {
@@ -202,7 +243,8 @@ impl Visitor for SemanticTypeChecker {
             let param_types = param_types.clone();
             if param_types.len() != call.arguments.len() {
                 self.errors.push(format!(
-                    "Función '{}' espera {} argumentos, pero se pasaron {}.",
+                    "Línea {}: Función '{}' espera {} argumentos, pero se pasaron {}.",
+                    call.funct_name.position.start_line(&self.input),
                     call.funct_name.name,
                     param_types.len(),
                     call.arguments.len()
@@ -212,14 +254,15 @@ impl Visitor for SemanticTypeChecker {
                 let arg_type = self.infer_expr_type(arg);
                 if &arg_type != expected_type {
                     self.errors.push(format!(
-                "El argumento tiene tipo '{:?}', pero se esperaba '{:?}' en la función '{}'.",
-                arg_type, expected_type, call.funct_name.name
+                "Línea {}: El argumento tiene tipo '{:?}', pero se esperaba '{:?}' en la función '{}'.",
+                call.funct_name.position.start_line(&self.input), arg_type, expected_type, call.funct_name.name
             ));
                 }
             }
         } else {
             self.errors
-                .push(format!("Función '{}' no declarada.", call.funct_name.name));
+                .push(format!("Línea {}: Función '{}' no declarada.", 
+                             call.funct_name.position.start_line(&self.input), call.funct_name.name));
         }
         for arg in &call.arguments {
             arg.accept(self);
@@ -230,7 +273,8 @@ impl Visitor for SemanticTypeChecker {
         if let atoms::atom::Atom::Variable(ident) = atom {
             if self.symbol_table.lookup(&ident.name).is_none() {
                 self.errors
-                    .push(format!("Variable '{}' no declarada.", ident.name));
+                    .push(format!("Línea {}: Variable '{}' no declarada.", 
+                                 ident.position.start_line(&self.input), ident.name));
             }
         }
     }
@@ -265,35 +309,39 @@ impl Visitor for SemanticTypeChecker {
         let right_ty = self.infer_expr_type(&binop.right);
 
         match &binop.operator {
-            BinOp::Plus(_) | BinOp::Minus(_) | BinOp::Mul(_) | BinOp::Div(_) | BinOp::Mod(_) => {
+            BinOp::Plus(pos) | BinOp::Minus(pos) | BinOp::Mul(pos) | BinOp::Div(pos) | BinOp::Mod(pos) => {
                 if left_ty != Type::Number || right_ty != Type::Number {
                     self.errors
-                        .push("Operación aritmética requiere números".to_string());
+                        .push(format!("Línea {}: Operación aritmética requiere números", 
+                                     pos.start_line(&self.input)));
                 }
             }
-            BinOp::EqualEqual(_)
-            | BinOp::NotEqual(_)
-            | BinOp::Greater(_)
-            | BinOp::Less(_)
-            | BinOp::GreaterEqual(_)
-            | BinOp::LessEqual(_) => {
+            BinOp::EqualEqual(pos)
+            | BinOp::NotEqual(pos)
+            | BinOp::Greater(pos)
+            | BinOp::Less(pos)
+            | BinOp::GreaterEqual(pos)
+            | BinOp::LessEqual(pos) => {
                 if left_ty != right_ty {
                     self.errors
-                        .push("Comparación entre tipos incompatibles".to_string());
+                        .push(format!("Línea {}: Comparación entre tipos incompatibles", 
+                                     pos.start_line(&self.input)));
                 }
             }
-            BinOp::AndAnd(_) | BinOp::OrOr(_) => {
+            BinOp::AndAnd(pos) | BinOp::OrOr(pos) => {
                 if left_ty != Type::Boolean || right_ty != Type::Boolean {
                     self.errors
-                        .push("Operador lógico requiere booleanos".to_string());
+                        .push(format!("Línea {}: Operador lógico requiere booleanos", 
+                                     pos.start_line(&self.input)));
                 }
             }
-            BinOp::ConcatString(_) => {
+            BinOp::ConcatString(pos) => {
                 if !(left_ty == Type::String || left_ty == Type::Number)
                     || !(right_ty == Type::String || right_ty == Type::Number)
                 {
                     self.errors
-                        .push("Concatenación requiere string o número".to_string());
+                        .push(format!("Línea {}: Concatenación requiere string o número", 
+                                     pos.start_line(&self.input)));
                 }
             }
             BinOp::Assign(_) => { /* handled in assignment */ }
@@ -305,16 +353,22 @@ impl Visitor for SemanticTypeChecker {
         ifelse.condition.accept(self);
         let cond_ty = self.infer_expr_type(&ifelse.condition);
         if cond_ty != Type::Boolean {
+            let line = self.get_expression_line(&ifelse.condition)
+                .map(|l| format!("Línea {}: ", l))
+                .unwrap_or_default();
             self.errors
-                .push("Condición de if debe ser booleana".to_string());
+                .push(format!("{}Condición de if debe ser booleana", line));
         }
         ifelse.then_branch.accept(self);
         for (_, cond, branch) in &ifelse.elif_branches {
             cond.accept(self);
             let t = self.infer_expr_type(cond);
             if t != Type::Boolean {
+                let line = self.get_expression_line(cond)
+                    .map(|l| format!("Línea {}: ", l))
+                    .unwrap_or_default();
                 self.errors
-                    .push("Condición de elif debe ser booleana".to_string());
+                    .push(format!("{}Condición de elif debe ser booleana", line));
             }
             branch.accept(self);
         }

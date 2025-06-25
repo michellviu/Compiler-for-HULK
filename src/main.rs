@@ -106,7 +106,7 @@ fn main() {
     );
     match parser::parse_program(&preprocessed) {
         Ok(program) => {
-            let mut checker = SemanticTypeChecker::new();
+            let mut checker = SemanticTypeChecker::new(preprocessed.clone());
             program.accept(&mut checker);
 
             if !checker.errors.is_empty() {
