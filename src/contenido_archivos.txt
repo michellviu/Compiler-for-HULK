@@ -1,0 +1,3870 @@
+
+
+===== ARCHIVO: ./parser/build.rs =====
+
+fn main() {
+    lalrpop::process_root().unwrap();
+}
+
+===== ARCHIVO: ./parser/src/ast/atoms/atom.rs =====
+
+use super::super::*;
+// use super::letin::Assignment;
+use crate::tokens::*;
+#[derive(Debug,Clone)]
+pub enum Atom {
+    NumberLiteral(Literal),
+    BooleanLiteral(Literal),
+    StringLiteral(Literal),
+    Variable(Identifier),
+    Group(Box<group::Group>),
+}
+
+impl Atom {
+    pub fn new_number_literal(start: usize, end: usize, value: &str) -> Result<Self, String> {
+        match value.parse::<i32>() {
+            Ok(num) => Ok(Atom::NumberLiteral(Literal::Number(
+                num,
+                Position::new(start, end),
+            ))),
+            Err(_) => Err(format!("No se pudo convertir '{}' a número", value)),
+        }
+    }
+
+    pub fn new_boolean_literal(start: usize, end: usize, value: &str) -> Result<Self, String> {
+        match value.parse::<bool>() {
+            Ok(b) => Ok(Atom::BooleanLiteral(Literal::Bool(
+                b,
+                Position::new(start, end),
+            ))),
+            Err(_) => Err(format!("No se pudo convertir '{}' a booleano", value)),
+        }
+    }
+
+    pub fn new_string_literal(start: usize, end: usize, value: &str) -> Self {
+        Atom::StringLiteral(Literal::Str(value.to_string(), Position::new(start, end)))
+    }
+
+    pub fn new_identifier(start: usize, end: usize, id: &str) -> Self {
+        Atom::Variable(Identifier {
+            name: id.to_string(),
+            position: Position::new(start, end),
+        })
+    }
+
+    pub fn new_grouped_expression(group: Group) -> Self {
+        Atom::Group(Box::new(group))
+    }
+}
+
+impl Visitable for Atom {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_atom(self);
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/ast/atoms/group.rs =====
+
+use super::super::Expression;
+use crate::tokens::GroupingOperator;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug,Clone)]
+pub struct Group{
+    pub open_paren: GroupingOperator,
+    pub close_paren: GroupingOperator,
+    pub expression: Expression,
+}
+
+impl Group {
+    pub fn new(
+        open_paren: GroupingOperator,
+        expression: Expression,
+        close_paren: GroupingOperator,
+    ) -> Self {
+        Group {
+            open_paren,
+            close_paren,
+            expression,
+        }
+    }
+}
+
+impl Visitable for Group {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_group(self);
+    }
+    
+}
+
+===== ARCHIVO: ./parser/src/ast/atoms/mod.rs =====
+
+pub mod atom;
+pub use atom::Atom;
+
+pub mod group;
+pub use group::Group;
+
+===== ARCHIVO: ./parser/src/ast/expressions/binoperation.rs =====
+
+use super::Expression;
+use crate::tokens::BinOp;
+use super::super::Visitor;
+use super::super::Visitable;
+#[derive(Debug,Clone)]
+pub struct BinaryOp{
+   pub left: Box<Expression>,
+   pub right: Box<Expression>,
+   pub operator: BinOp,
+}
+
+impl BinaryOp {
+    pub fn new(left: Expression, right: Expression, operator:BinOp) -> Self {
+        BinaryOp {
+            left: Box::new(left),
+            right: Box::new(right),
+            operator,
+        }
+    }
+}
+
+impl Visitable for BinaryOp {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_binary_op(self);
+    }
+    
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/block.rs =====
+
+use super::super::Expression;
+use crate::tokens::GroupingOperator;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug,Clone)]
+pub struct ExpressionList {
+    pub expressions: Vec<Expression>,
+}
+
+impl ExpressionList {
+    pub fn new(expressions: Vec<Expression>) -> Self {
+        ExpressionList {
+            expressions,
+        }
+    }
+}
+
+impl Visitable for ExpressionList {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_expression_list(self);
+    }
+    
+}
+#[derive(Debug,Clone)]
+pub struct Block {
+    pub open_brace: GroupingOperator,
+    pub close_brace: GroupingOperator,
+    pub expression_list: ExpressionList,
+}
+
+impl Block {
+    pub fn new(
+        open_brace: GroupingOperator,
+        expression_list: ExpressionList,
+        close_brace: GroupingOperator,
+    ) -> Self {
+        Block {
+            open_brace,
+            close_brace,
+            expression_list,
+        }
+    }
+}
+
+impl Visitable for Block {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_block(self);
+    }
+    
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/forr.rs =====
+
+use crate::tokens::*;
+use crate::Expression;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug,Clone)]
+pub struct For {
+    pub for_token: Keyword,
+    pub var: Box<Expression>,
+    pub in_token: Keyword,
+    pub iterable: Box<Expression>,
+    pub body: Box<Expression>,
+}
+
+impl For {
+    pub fn new(for_token: Keyword, var: Expression, in_token: Keyword, iterable: Expression, body: Expression) -> Self {
+        For {
+            for_token,
+            var: Box::new(var),
+            in_token,
+            iterable: Box::new(iterable),
+            body: Box::new(body),
+        }
+    }
+}
+
+impl Visitable for For {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_for(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/functioncall.rs =====
+
+use super::super::{Visitable, Visitor};
+use crate::Expression;
+use crate::tokens::Identifier;
+
+#[derive(Debug,Clone)]
+pub struct FunctionCall {
+    pub funct_name: Identifier,             
+    pub arguments: Vec<Expression>,
+}
+
+impl FunctionCall {
+    pub fn new(funct_name: Identifier, arguments: Vec<Expression>) -> Self {
+        FunctionCall { funct_name, arguments }
+    }
+}
+
+impl Visitable for FunctionCall {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_function_call(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/functiondeclaration.rs =====
+
+use super::super::{Visitable, Visitor,Type};
+use crate::Expression;
+use crate::tokens::{Identifier };
+
+
+#[derive(Debug,Clone)]
+pub struct FunctionParams {
+    pub name: Identifier,
+    pub signature: Type,
+}
+
+impl FunctionParams {
+    pub fn new(name: Identifier, signature: Type) -> Self {
+        FunctionParams {
+            name,
+            signature,
+        }
+    }
+}
+
+
+
+#[derive(Debug,Clone)]
+pub struct FunctionDef {
+    pub name: Identifier,
+    pub params: Vec<FunctionParams>,
+    pub return_type: Type,
+    pub body: Box<Expression>,
+}
+
+impl FunctionDef {
+    pub fn new_expr(name: Identifier, params: Vec<FunctionParams>, return_type: Type, expr: Box<Expression>) -> Self {
+        FunctionDef {
+            name,
+            params,
+            return_type,
+            body: expr,
+        }
+    }
+}
+
+impl Visitable for FunctionDef {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_function_def(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/ifelse.rs =====
+
+use super::super::{Visitable, Visitor};
+use crate::Expression;
+use crate::tokens::Keyword;
+
+#[derive(Debug,Clone)]
+pub struct IfElse {
+    pub if_kw: Keyword,
+    pub condition: Box<Expression>,
+    pub then_branch: Box<Expression>,
+    pub elif_branches: Vec<(Keyword, Expression, Expression)>,
+    pub else_kw: Option<Keyword>,
+    pub else_branch: Option<Box<Expression>>,
+}
+
+impl IfElse {
+    pub fn new(
+        if_kw: Keyword,
+        condition: Expression,
+        then_branch: Expression,
+        elif_branches: Vec<(Keyword, Expression, Expression)>,
+        else_kw: Option<Keyword>,
+        else_branch: Option<Expression>,
+    ) -> Self {
+        IfElse {
+            if_kw,
+            condition: Box::new(condition),
+            then_branch: Box::new(then_branch),
+            elif_branches,
+            else_kw,
+            else_branch: else_branch.map(Box::new),
+        }
+    }
+}
+
+impl Visitable for IfElse {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_ifelse(self);
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/ast/expressions/letin.rs =====
+
+use super::super::Visitable;
+use super::super::Visitor;
+use crate::Atom;
+use crate::BinOp;
+use crate::Expression;
+use crate::tokens::*;
+
+#[derive(Debug,Clone)]
+pub struct Assignment {
+    pub variable: Atom,
+    pub op: BinOp,
+    pub body: Box<Expression>,
+}
+
+impl Assignment {
+    pub fn new(variable: Atom, op: BinOp, body: Expression) -> Self {
+        match variable {
+            
+            Atom::Variable(identifier) => Assignment {
+                variable: Atom::Variable(identifier),
+                op,
+                body: Box::new(body),
+            },
+            _ => panic!("Assignment must be to a variable"),
+        }
+    }
+}
+
+impl Visitable for Assignment {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_assignment(self);
+    }
+}
+#[derive(Debug,Clone)]
+pub struct LetIn {
+    pub let_token: Keyword,
+    pub bindings: Vec<Assignment>,
+    pub in_token: Keyword,
+    pub body: Box<Expression>,
+}
+
+impl LetIn {
+    pub fn new(
+        let_token: Keyword,
+        bindings: Vec<Assignment>,
+        in_token: Keyword,
+        body: Expression,
+    ) -> Self {
+        LetIn {
+            let_token,
+            bindings,
+            in_token,
+            body: Box::new(body),
+        }
+    }
+}
+
+impl Visitable for LetIn {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_letin(self);
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/ast/expressions/unaryoperation.rs =====
+
+use crate::Expression;
+use crate::tokens;
+use crate::Visitable;
+use crate::Visitor;
+
+#[derive(Debug,Clone)]
+pub struct UnaryOp {
+    pub op: tokens::UnaryOp,
+    pub expr: Box<Expression>,
+}
+
+impl UnaryOp {
+    pub fn new(op: tokens::UnaryOp, expr: Expression) -> Self {
+        UnaryOp { op, expr: Box::new(expr) }
+    }
+}
+
+impl Visitable for UnaryOp {
+
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_unary_op(self);
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/ast/expressions/whilee.rs =====
+
+use crate::tokens::*;
+use crate::Expression;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug,Clone)]
+pub struct While {
+    pub while_token: Keyword,
+    pub cond: Box<Expression>,
+    pub body: Box<Expression>,
+}
+
+impl While {
+    pub fn new(while_token: Keyword, cond: Expression, body: Expression) -> Self {
+        While {
+            while_token,
+            cond: Box::new(cond),
+            body: Box::new(body),
+        }
+    }
+}
+
+impl Visitable for While {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_while(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/accesstypesprop.rs =====
+
+use super::super::Visitable;
+use super::super::Visitor;
+use crate::tokens::{Identifier };
+use crate::Expression;
+
+
+#[derive(Debug,Clone)]
+pub struct AccessTypeProp {
+    pub referenced_type: Expression, // Cambiado de Identifier a Expression
+    pub properties: Identifier,
+    pub params: Vec<Expression>,
+
+}
+
+impl AccessTypeProp {
+    pub fn new_expr(referenced_type: Expression, properties: Identifier, params: Vec<Expression>) -> Self {
+        // Cambia el primer parámetro de Identifier a Expression
+        AccessTypeProp {
+            referenced_type,
+            properties, 
+            params,
+        }
+    }
+     pub fn new_property_expr(referenced_type: Expression, properties: Identifier) -> Self {
+        AccessTypeProp {
+            referenced_type,
+            properties,
+            params: Vec::new(), // Sin argumentos para acceso a propiedades
+        }
+    }
+}
+
+impl Visitable for AccessTypeProp {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_access_type_prop(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/declarationtypes.rs =====
+
+use super::super::Visitable;
+use super::super::Visitor;
+
+use crate::tokens::{Identifier };
+
+use super::functiondeclaration::{FunctionDef, FunctionParams};
+use super::letin::Assignment;
+
+
+#[derive(Debug,Clone)]
+pub struct Declarationtypes {
+    pub name_types: Identifier,
+    pub properties: Vec<Assignment>,
+    pub functions: Vec<FunctionDef>,
+    pub build: Vec<FunctionParams>
+
+}
+
+impl Declarationtypes {
+    pub fn new_expr(name_types: Identifier, properties: Vec<Assignment>, functions: Vec<FunctionDef>, build: Vec<FunctionParams> ) -> Self {
+        Declarationtypes {
+            name_types,
+            properties,
+            functions,
+            build,
+        }
+    }
+}
+
+impl Visitable for Declarationtypes {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_declaration_function(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/expressions.rs =====
+
+use super::super::Visitable;
+use super::super::Visitor;
+use super::*;
+use crate::Atom;
+use crate::BinOp;
+use crate::tokens;
+use super::declarationtypes::Declarationtypes;
+use super::instantiatingtypes::InstantingTypes;
+use super::accesstypesprop::AccessTypeProp;
+
+
+#[derive(Debug,Clone)]
+pub enum Expression {
+    BinaryOp(BinaryOp),
+    Atom(Box<Atom>),
+    IfElse(Box<ifelse::IfElse>),
+    LetIn(Box<letin::LetIn>),
+    For(Box<forr::For>),
+    Print(Box<Expression>, tokens::Position),
+    While(Box<whilee::While>),
+    Block(Box<block::Block>),
+    UnaryOp(UnaryOp),
+    Range(Box<Expression>, Box<Expression>),
+    FunctionCall(functioncall::FunctionCall),
+    FunctionDef(functiondeclaration::FunctionDef),
+    TypeDeclaration(Box<Declarationtypes>),
+    TypeInstantiation(Box<InstantingTypes>),
+    TypeMethodAccess(Box<AccessTypeProp>),
+    TypePropertyAccess(Box<accesstypesprop::AccessTypeProp>),
+    
+}
+
+impl Expression {
+    pub fn new_type_property_access(acc: AccessTypeProp) -> Self {
+        Expression::TypePropertyAccess(Box::new(acc))
+    }
+    pub fn new_type_declaration(decl: Declarationtypes) -> Self {
+        Expression::TypeDeclaration(Box::new(decl))
+    }
+    pub fn new_type_instantiation(inst: InstantingTypes) -> Self {
+        Expression::TypeInstantiation(Box::new(inst))
+    }
+    pub fn new_type_method_access(acc: AccessTypeProp) -> Self {
+        Expression::TypeMethodAccess(Box::new(acc))
+    }
+    pub fn new_range(start: Expression, end: Expression) -> Self {
+        Expression::Range(Box::new(start), Box::new(end))
+    }
+    pub fn new_for(forr: forr::For) -> Self {
+        Expression::For(Box::new(forr))
+    }
+    pub fn new_ifelse(ifelse: ifelse::IfElse) -> Self {
+        Expression::IfElse(Box::new(ifelse))
+    }
+
+    pub fn new_binary_op(left: Expression, right: Expression, operator: BinOp) -> Self {
+        Expression::BinaryOp(BinaryOp::new(left, right, operator))
+    }
+
+    pub fn new_unary_op(op: tokens::UnaryOp, expr: Expression) -> Self
+    {
+        Expression::UnaryOp(UnaryOp::new(op, expr))
+    }
+
+    pub fn new_atom(atom: Atom) -> Self {
+        Expression::Atom(Box::new(atom))
+    }
+
+    pub fn new_print(expr: Expression, pos: tokens::Position) -> Self {
+        Expression::Print(Box::new(expr), pos)
+    }
+
+    pub fn new_while(whilee: While) -> Self {
+        Expression::While(Box::new(whilee))
+    }
+
+    pub fn new_letin(letin: letin::LetIn) -> Self {
+        Expression::LetIn(Box::new(letin))
+    }
+
+    pub fn new_block(block: Block) -> Self {
+        Expression::Block(Box::new(block))
+    }
+
+
+}
+
+impl Visitable for Expression {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        match self {
+            Expression::BinaryOp(binop) => visitor.visit_binary_op(binop),
+            Expression::Atom(atom) => atom.accept(visitor),
+            Expression::IfElse(ifelse) => ifelse.accept(visitor),
+            Expression::Print(expr, _pos) => visitor.visit_print(expr),
+            Expression::While(whilee) => whilee.accept(visitor),
+            Expression::LetIn(letin) => letin.accept(visitor),
+            Expression::Block(block) => block.accept(visitor),
+            Expression::UnaryOp(unoperator) => unoperator.accept(visitor),
+            Expression::For(forr) => forr.accept(visitor),
+            Expression::Range(start, end) => {
+                start.accept(visitor);
+                end.accept(visitor);
+            }
+            Expression::FunctionCall(call) => call.accept(visitor),
+            Expression::FunctionDef(def) => def.accept(visitor),
+            Expression::TypeDeclaration(decl) => decl.accept(visitor),
+            Expression::TypeInstantiation(inst) => inst.accept(visitor),
+            Expression::TypeMethodAccess(acc) => acc.accept(visitor),
+            Expression::TypePropertyAccess(acc) => acc.accept(visitor),
+        }
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/ast/expressions/instantiatingtypes.rs =====
+
+use super::super::Visitable;
+use super::super::Visitor;
+use crate::tokens::{Identifier };
+use crate::Expression;
+
+#[derive(Debug,Clone)]
+pub struct InstantingTypes {
+    pub referenced_type: Identifier,
+    pub params: Vec<Expression>,
+
+}
+
+impl InstantingTypes {
+    pub fn new_expr(referenced_type: Identifier, params: Vec<Expression> ) -> Self {
+        InstantingTypes {
+            referenced_type,
+            params,
+        }
+    }
+}
+
+impl Visitable for InstantingTypes {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_instanting_types(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/expressions/mod.rs =====
+
+pub mod expressions;
+pub use expressions::Expression;
+
+pub mod binoperation;
+pub use binoperation::BinaryOp;
+
+pub mod ifelse;
+
+pub mod letin;
+pub use letin::LetIn;
+pub use letin::Assignment;
+
+pub mod whilee;
+pub use whilee::While;
+
+pub mod block;
+pub use block::Block;
+pub use block::ExpressionList;
+pub mod unaryoperation;
+pub use unaryoperation::UnaryOp;
+pub mod forr;
+pub use forr::For;
+
+
+pub mod functioncall;
+pub use functioncall::FunctionCall;
+pub mod functiondeclaration;
+pub use functiondeclaration::FunctionDef;
+
+pub mod declarationtypes;
+pub use declarationtypes::Declarationtypes;
+pub mod instantiatingtypes;
+pub use instantiatingtypes::InstantingTypes;
+pub mod accesstypesprop;
+pub use accesstypesprop::AccessTypeProp;
+pub use functiondeclaration::{ FunctionParams};
+
+===== ARCHIVO: ./parser/src/ast/mod.rs =====
+
+pub mod atoms;
+pub use atoms::*;
+
+pub mod expressions;
+pub use expressions::letin::Assignment;
+pub use expressions::letin::LetIn;
+pub use expressions::*;
+
+
+pub mod visitor;
+pub use visitor::Visitor;
+pub use visitor::Visitable;
+pub use visitor::types::Type;
+
+pub mod program;
+pub use program::Program;
+
+===== ARCHIVO: ./parser/src/ast/program.rs =====
+
+use super::ExpressionList;
+use super::Visitable;
+use super::Visitor;
+// use super::Expression; // <-- Necesario para Vec<Expression>
+
+#[derive(Debug)]
+pub struct Program {
+    // pub functions: Vec<Expression>,         // <-- Agrega este campo
+    pub expression_list: ExpressionList,
+}
+
+impl Program {
+    pub fn new(expression_list: ExpressionList) -> Self {
+        Program {
+            // functions: Vec::new(),          // <-- Por defecto, sin funciones
+            expression_list,
+        }
+    }
+
+    // pub fn new_with_functions(functions: Vec<Expression>, expression_list: ExpressionList) -> Self {
+    //     Program {
+    //         functions,
+    //         expression_list,
+    //     }
+    // }
+}
+
+impl Visitable for Program {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_program(self);
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/visitor/mod.rs =====
+
+pub mod visitor;
+pub mod ast_printer_visitor;
+pub mod llvm_visitor;
+pub mod ast_optimizer;
+pub mod type_checker;
+pub mod types;
+pub mod symbol_table;
+pub mod semantic_type_checker;
+pub use visitor::Visitor;
+pub use visitor::Visitable;
+pub use ast_printer_visitor::AstPrinterVisitor;
+pub use llvm_visitor::LLVMGenerator;
+pub use ast_optimizer::AstOptimizer;
+pub use type_checker::TypeChecker;
+pub use types::Type;
+pub use symbol_table::SymbolTable;
+pub use semantic_type_checker::SemanticTypeChecker;
+
+
+===== ARCHIVO: ./parser/src/ast/visitor/symbol_table.rs =====
+
+use std::collections::HashMap;
+use super::types::Type;
+
+#[derive(Debug, Clone)]
+pub enum SymbolInfo {
+    Variable { var_type: Type },
+    Function { return_type: Type, param_types: Vec<Type> },
+}
+
+#[derive(Debug, Clone)]
+pub struct SymbolTable {
+    scopes: Vec<HashMap<String, SymbolInfo>>,
+}
+
+impl SymbolTable {
+    pub fn new() -> Self {
+        SymbolTable { scopes: vec![HashMap::new()] }
+    }
+
+    pub fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    pub fn exit_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    pub fn insert(&mut self, name: String, info: SymbolInfo) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name, info);
+        }
+    }
+
+    pub fn lookup(&self, name: &str) -> Option<&SymbolInfo> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(info) = scope.get(name) {
+                return Some(info);
+            }
+        }
+        None
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/visitor/types.rs =====
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Number,
+    Boolean,
+    String,
+    Object,
+    Custom(String), // Para type(Ident)
+    Unknown,
+}
+
+impl Type {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "Number" | "number" | "i32" | "f64" => Type::Number,
+            "Boolean" | "boolean" | "bool" => Type::Boolean,
+            "String" | "string" => Type::String,
+            "Object" | "object" => Type::Object,
+            _ => Type::Unknown,
+        }
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/visitor/ast_optimizer.rs =====
+
+use crate::ast;
+use crate::ast::expressions::binoperation::BinaryOp;
+use crate::ast::visitor::{Visitable, Visitor};
+
+pub struct AstOptimizer;
+
+impl AstOptimizer {
+    pub fn new() -> Self {
+        AstOptimizer
+    }
+
+    // fn merge_string_literals(&self, binop: &BinaryOp) -> Option<ast::Expression> {
+    //     if let BinOp::ConcatString(_) = binop.operator {
+    //         if let ast::Expression::Atom(left_atom) = &*binop.left {
+    //             if let ast::Expression::Atom(right_atom) = &*binop.right {
+    //                 if let ast::atoms::atom::Atom::StringLiteral(left_lit) = &**left_atom {
+    //                     if let ast::atoms::atom::Atom::StringLiteral(right_lit) = &**right_atom {
+    //                         // Merge the two string literals
+    //                         let merged_value = format!(
+    //                             "{}{}",
+    //                             left_lit.to_string(),
+    //                             right_lit.to_string()
+    //                         );
+    //                         return Some(ast::Expression::Atom(Box::new(
+    //                             ast::atoms::atom::Atom::new_string_literal(
+    //                                 left_lit.,
+    //                                 right_lit.position().end(),
+    //                                 &merged_value,
+    //                             ),
+    //                         )));
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     None
+    // }
+}
+
+impl Visitor for AstOptimizer {
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp) {
+        
+    }
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
+        
+    }
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_for(&mut self, _forr: &ast::forr::For) {
+        
+    }
+    fn visit_range(&mut self, _start: &ast::Expression, _end: &ast::Expression) {
+        
+    }
+    fn visit_function_call(&mut self, _call: &ast::expressions::functioncall::FunctionCall) {
+        
+    }
+    fn visit_function_def(&mut self, _def: &ast::expressions::functiondeclaration::FunctionDef) {
+        
+    }
+
+    fn visit_program(&mut self, program: &ast::Program) {
+        program.expression_list.accept(self);
+    }
+
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+    }
+
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        ifelse.condition.accept(self);
+        ifelse.then_branch.accept(self);
+        for (_, cond, expr) in &ifelse.elif_branches {
+            cond.accept(self);
+            expr.accept(self);
+        }
+        if let Some(branch) = &ifelse.else_branch {
+            branch.accept(self);
+        }
+    }
+
+    fn visit_expression(&mut self, expr: &ast::Expression) {
+        expr.accept(self);
+    }
+
+    fn visit_atom(&mut self, _atom: &ast::atoms::atom::Atom) {
+        // Nothing to optimize in atoms
+    }
+
+    fn visit_binary_op(&mut self, _binop: &BinaryOp) {
+        // Primero, recorre los hijos
+        // binop.left.accept(self);
+        // binop.right.accept(self);
+
+        // use crate::ast::atoms::atom::Atom::*;
+        // use crate::tokens::Literal;
+
+        // // Intenta reducir si ambos lados son literales
+        // if let (ast::Expression::Atom(left_atom), ast::Expression::Atom(rightAtom)) = (&*binop.left, &*binop.right) {
+        //     match (&**leftAtom, &**rightAtom, &binop.operator) {
+        //         // Comparaciones numéricas
+        //         (NumberLiteral(Literal::Number(l, _)), NumberLiteral(Literal::Number(r, _)), op) => {
+        //             let result = match op {
+        //                 BinOp::GreaterEqual(_) => l >= r,
+        //                 BinOp::Greater(_) => l > r,
+        //                 BinOp::LessEqual(_) => l <= r,
+        //                 BinOp::Less(_) => l < r,
+        //                 BinOp::EqualEqual(_) => l == r,
+        //                 BinOp::NotEqual(_) => l != r,
+        //                 _ => return,
+        //             };
+        //             // Aquí deberías reemplazar el nodo en el AST por un Atom::BooleanLiteral
+        //             // (esto requiere un AST mutable o una transformación, aquí solo es ejemplo)
+        //             // println!("Reducible: {} {:?} {} => {}", l, op, r, result);
+        //         }
+        //         // Operadores lógicos entre booleanos
+        //         (BooleanLiteral(Literal::Bool(l, _)), BooleanLiteral(Literal::Bool(r, _)), op) => {
+        //             let result = match op {
+        //                 BinOp::AndAnd(_) => *l && *r,
+        //                 BinOp::OrOr(_) => *l || *r,
+        //                 BinOp::EqualEqual(_) => l == r,
+        //                 BinOp::NotEqual(_) => l != r,
+        //                 _ => return,
+        //             };
+        //             // println!("Reducible: {} {:?} {} => {}", l, op, r, result);
+        //         }
+        //         _ => {}
+        //     }
+        }
+
+    fn visit_letin(&mut self, _letin: &ast::expressions::letin::LetIn) {
+        // for assign in &letin.assignments {
+        //     assign.accept(self);
+        // }
+        // letin.expression.accept(self);
+    }
+
+    fn visit_assignment(&mut self, _assign: &ast::expressions::letin::Assignment) {
+        // assign.expression.accept(self);
+    }
+
+    fn visit_block(&mut self, _block: &ast::expressions::block::Block) {
+        // for expr in &block.expressions.expressions {
+        //     expr.accept(self);
+        // }
+    }
+
+    fn visit_literal(&mut self, _literal: &crate::tokens::Literal) {}
+
+    fn visit_identifier(&mut self, _identifier: &crate::tokens::Identifier) {}
+
+    fn visit_print(&mut self, expr: &ast::Expression) {
+        expr.accept(self);
+    }
+
+    fn visit_group(&mut self, _group: &ast::atoms::group::Group) {}
+
+    fn visit_unary_op(&mut self, _unary_op: &ast::expressions::unaryoperation::UnaryOp) {}
+
+    fn visit_while(&mut self, _whilee: &ast::whilee::While) {}
+
+}
+// ...existing code...
+
+use std::collections::HashSet;
+
+/// Preprocesador: marca las llamadas a función con '@' antes del parseo.
+/// - Busca todas las declaraciones de función y las guarda.
+/// - Reemplaza cada llamada a función `foo(` por `@foo(` en el código fuente.
+pub fn preprocess_functions(source: &str) -> String {
+    let mut function_names = HashSet::new();
+    let mut output = String::new();
+
+    // 1. Encuentra todas las declaraciones de función
+    for line in source.lines() {
+        let trimmed = line.trim_start();
+        if let Some(rest) = trimmed.strip_prefix("function ") {
+            if let Some(name) = rest.split(':').next() {
+                let name = name.trim();
+                if !name.is_empty() {
+                    function_names.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    // 2. Recorre el código y reemplaza llamadas a función y métodos
+    let chars: Vec<char> = source.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        // Detectar punto para posibles llamadas a métodos
+        if i > 0 && chars[i] == '.' && i + 1 < chars.len() {
+            output.push('.');
+            i += 1;
+            
+            // Saltar espacios después del punto
+            while i < chars.len() && chars[i].is_whitespace() {
+                output.push(chars[i]);
+                i += 1;
+            }
+            
+            // Si encontramos un identificador después del punto
+            if i < chars.len() && (chars[i].is_alphabetic() || chars[i] == '_') {
+                let start = i;
+                while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                    i += 1;
+                }
+                
+                // Extraer el nombre del método
+                let method_name: String = chars[start..i].iter().collect();
+                
+                // Saltar espacios después del nombre del método
+                let mut j = i;
+                let mut spaces = String::new();
+                while j < chars.len() && chars[j].is_whitespace() {
+                    spaces.push(chars[j]);
+                    j += 1;
+                }
+                
+                // Si después hay un paréntesis, es una llamada a método
+                if j < chars.len() && chars[j] == '(' {
+                    // Añadir el sigil antes del nombre del método
+                    output.push('$');
+                }
+                
+                // Añadir el nombre del método y los espacios
+                output.push_str(&method_name);
+                output.push_str(&spaces);
+                i = j;
+                continue;
+            }
+        }
+        
+        // Código existente para marcar llamadas a función con '@'
+        if chars[i].is_alphabetic() || chars[i] == '_' {
+            let start = i;
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
+            let ident: String = chars[start..i].iter().collect();
+
+            // Guarda los espacios en una variable temporal
+            let mut j = i;
+            let mut spaces = String::new();
+            while j < chars.len() && chars[j].is_whitespace() {
+                spaces.push(chars[j]);
+                j += 1;
+            }
+
+            let is_function_call = j < chars.len() && chars[j] == '(' && function_names.contains(&ident);
+            let prev = output.trim_end();
+            let is_definition = prev.ends_with("function");
+            if is_function_call && !is_definition {
+                output.push('@');
+                output.push_str(&ident);
+            } else {
+                output.push_str(&ident);
+            }
+            output.push_str(&spaces);
+            i = j;
+        } else {
+            output.push(chars[i]);
+            i += 1;
+        }
+    }
+
+    output
+}
+
+===== ARCHIVO: ./parser/src/ast/visitor/ast_printer_visitor.rs =====
+
+use std::f32::consts::E;
+
+use crate::ast;
+use crate::ast::Expression;
+use crate::ast::atoms::atom::Atom;
+use crate::group;
+use crate::tokens;
+use crate::visitor::Visitable;
+use crate::visitor::Visitor;
+use crate::whilee;
+use crate::forr;
+
+
+pub struct AstPrinterVisitor {
+    pub indent: usize,
+}
+
+impl AstPrinterVisitor {
+    pub fn new() -> Self {
+        AstPrinterVisitor { indent: 0 }
+    }
+    fn pad(&self) -> String {
+        "  ".repeat(self.indent)
+    }
+}
+
+impl Visitor for AstPrinterVisitor {
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp) {
+    println!("{}TypeMethodAccess: {}", self.pad(), access.properties.name);
+    self.indent += 1;
+    println!("{}Instance:", self.pad());
+    self.indent += 1;
+    access.referenced_type.accept(self);
+    self.indent -= 1;
+    if !access.params.is_empty() {
+        println!("{}Args:", self.pad());
+        self.indent += 1;
+        for arg in &access.params {
+            arg.accept(self);
+        }
+        self.indent -= 1;
+    }
+    self.indent -= 1;
+}
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+    self.visit_type_declaration(decl);
+}
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
+    println!("{}TypeInstantiation: {}", self.pad(), inst.referenced_type.name);
+    self.indent += 1;
+    if !inst.params.is_empty() {
+        println!("{}Args:", self.pad());
+        self.indent += 1;
+        for arg in &inst.params {
+            arg.accept(self);
+        }
+        self.indent -= 1;
+    }
+    self.indent -= 1;
+}
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+    println!(">>> Entrando a visit_type_declaration");   
+    println!("{}TypeDeclaration: {}", self.pad(), decl.name_types.name);
+    self.indent += 1;
+
+    // Imprime parámetros de tipo
+    if !decl.build.is_empty() {
+        println!("{}TypeParams:", self.pad());
+        self.indent += 1;
+        for param in &decl.build {
+            println!("{}{}", self.pad(), param.name);
+        }
+        self.indent -= 1;
+    }
+
+    // Imprime propiedades
+    if !decl.properties.is_empty() {
+        println!("{}Properties:", self.pad());
+        self.indent += 1;
+        for prop in &decl.properties {
+            prop.accept(self);
+        }
+        self.indent -= 1;
+    }
+
+    // Imprime métodos
+    if !decl.functions.is_empty() {
+        println!("{}Methods:", self.pad());
+        self.indent += 1;
+        for func in &decl.functions {
+            func.accept(self);
+        }
+        self.indent -= 1;
+    }
+
+    self.indent -= 1;
+}
+
+    fn visit_program(&mut self, program: &ast::Program) {
+        println!("{}Program", self.pad());
+        self.indent += 1;
+        // Imprime las funciones declaradas
+        // for func in &program.functions {
+        //     func.accept(self);
+        // }
+        // Imprime la lista de expresiones globales
+        program.expression_list.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
+        println!("{}ExpressionList", self.pad());
+        self.indent += 1;
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+        self.indent -= 1;
+    }
+    
+    fn visit_expression(&mut self, expr: &ast::Expression) {
+        match expr {
+            Expression::BinaryOp(binop) => binop.accept(self),
+            Expression::Atom(atom) => atom.accept(self),
+            Expression::Print(expr, _pos) => self.visit_print(expr),
+            Expression::While(whilee) => whilee.accept(self),
+            Expression::IfElse(ifelse) => ifelse.accept(self),
+            Expression::LetIn(letin) => letin.accept(self),
+            Expression::Block(block) => block.accept(self),
+            Expression::UnaryOp(unary_op) => unary_op.accept(self),
+            Expression::For(forr) => forr.accept(self),
+            Expression::Range(start, end) => self.visit_range(start, end),
+            Expression::FunctionCall(call) => call.accept(self),      
+            Expression::FunctionDef(def) => def.accept(self),  
+            Expression::TypeDeclaration(decl) => decl.accept(self),
+            Expression::TypeInstantiation(inst) => inst.accept(self),
+            Expression::TypeMethodAccess(access) => access.accept(self),
+            Expression::TypePropertyAccess(access) => access.accept(self),
+              
+        }
+    }
+
+
+     fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression) {
+        println!("{}Range", self.pad());
+        self.indent += 1;
+        println!("{}Start:", self.pad());
+        self.indent += 1;
+        start.accept(self);
+        self.indent -= 1;
+        println!("{}End:", self.pad());
+        self.indent += 1;
+        end.accept(self);
+        self.indent -= 2;
+    }
+    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall) {
+    println!("{}FunctionCall: {}", self.pad(), call.funct_name);
+    self.indent += 1;
+    for arg in &call.arguments {
+        arg.accept(self);
+    }
+    self.indent -= 1;
+}
+
+fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef) {
+    println!("{}FunctionDef: {}", self.pad(), def.name);
+    self.indent += 1;
+    println!("{}Params:", self.pad());
+    self.indent += 1;
+    for param in &def.params {
+        println!("{}{}", self.pad(), param.name);
+    }
+    self.indent -= 1;
+    println!("{}Body:", self.pad());
+    self.indent += 1;
+    def.body.accept(self);
+    self.indent -= 2;
+}
+    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom) {
+        use crate::ast::atoms::atom::Atom::*;
+        match atom {
+            NumberLiteral(lit) => lit.accept(self),
+            BooleanLiteral(lit) => lit.accept(self),
+            StringLiteral(lit) => lit.accept(self),
+            Variable(id) => {
+                println!("{}Variable: {}", self.pad(), id.name);
+            }
+            Group(expr) => expr.accept(self),
+                
+        }
+    }
+     fn visit_for(&mut self, forr: &forr::For) {
+        println!("{}For", self.pad());
+        self.indent += 1;
+        println!("{}Var:", self.pad());
+        self.indent += 1;
+        forr.var.accept(self);
+        self.indent -= 1;
+        println!("{}Iterable:", self.pad());
+        self.indent += 1;
+        forr.iterable.accept(self);
+        self.indent -= 1;
+        println!("{}Body:", self.pad());
+        self.indent += 1;
+        forr.body.accept(self);
+        self.indent -= 2;
+    }
+
+    fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp) {
+        use crate::tokens::BinOp;
+        match &binop.operator {
+            BinOp::Assign(_) => {
+                println!("{}DestructiveAssign:", self.pad());
+                self.indent += 1;
+                binop.left.accept(self);
+                binop.right.accept(self);
+                self.indent -= 1;
+            }
+            _ => {
+                println!("{}BinaryOp: {}", self.pad(), binop.operator);
+                self.indent += 1;
+                binop.left.accept(self);
+                binop.right.accept(self);
+                self.indent -= 1;
+            }
+        }
+    }
+    fn visit_letin(&mut self, letin: &ast::expressions::letin::LetIn) {
+        println!("{}LetIn", self.pad());
+        self.indent += 1;
+        for assign in &letin.bindings {
+            assign.accept(self);
+        }
+        letin.body.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_ifelse(&mut self, ifelse: &ast::expressions::ifelse::IfElse) {
+        println!("{}If", self.pad());
+        self.indent += 1;
+        println!("{}Condition:", self.pad());
+        self.indent += 1;
+        ifelse.condition.accept(self);
+        self.indent -= 1;
+
+        println!("{}Then:", self.pad());
+        self.indent += 1;
+        ifelse.then_branch.accept(self);
+        self.indent -= 1;
+
+        for (_elif_kw, cond, branch) in &ifelse.elif_branches {
+            println!("{}Elif:", self.pad());
+            self.indent += 1;
+            cond.accept(self);
+            branch.accept(self);
+            self.indent -= 1;
+        }
+
+        if let Some(else_expr) = &ifelse.else_branch {
+            println!("{}Else:", self.pad());
+            self.indent += 1;
+            else_expr.accept(self);
+            self.indent -= 1;
+        }
+
+        self.indent -= 1;
+    }
+    fn visit_assignment(&mut self, assign: &ast::expressions::letin::Assignment) {
+        let var_name = match &assign.variable {
+            Atom::Variable(identifier) => &identifier.name,
+            _ => panic!("Expected variable in assignment"),
+        };
+        println!("{}Assignment: {} {}", self.pad(), var_name, assign.op);
+        self.indent += 1;
+        assign.body.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_block(&mut self, block: &ast::expressions::block::Block) {
+        println!("{}Block", self.pad());
+        self.indent += 1;
+        block.expression_list.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_literal(&mut self, literal: &tokens::Literal) {
+        let type_str = match literal {
+            tokens::Literal::Number(_, _) => "Number",
+            tokens::Literal::Str(_, _) => "String",
+            tokens::Literal::Bool(_, _) => "Bool",
+        };
+        println!("{}{}Literal: {}", self.pad(), type_str, literal);
+    }
+    fn visit_identifier(&mut self, identifier: &tokens::Identifier) {
+        println!("{}Identifier: {}", self.pad(), identifier);
+    }
+    fn visit_print(&mut self, expr: &ast::Expression) {
+        println!("{}Print", self.pad());
+        self.indent += 1;
+        expr.accept(self);
+        self.indent -= 1;
+    }
+    fn visit_while(&mut self, whilee: &whilee::While) {
+        println!("{}While", self.pad());
+        self.indent += 1;
+        println!("{}Condition:", self.pad());
+        self.indent += 1;
+        whilee.cond.accept(self);
+        self.indent -= 1;
+        println!("{}Body:", self.pad());
+        self.indent += 1;
+        whilee.body.accept(self);
+        self.indent -= 2;
+    }
+
+    fn visit_group(&mut self, group: &group::Group) {
+        println!("{}Group", self.pad());
+        group.expression.accept(self);
+    }
+
+    fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp) {
+        println!("{}UnaryOp: {}", self.pad(), unary_op.op);
+        self.indent += 1;
+        unary_op.expr.accept(self);
+        self.indent -= 1;
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/visitor/llvm_visitor.rs =====
+
+use super::symbol_table::{SymbolInfo, SymbolTable};
+use super::types::Type;
+use crate::ast::atoms::atom::Atom;
+use crate::ast::expressions::binoperation::BinaryOp;
+use crate::ast::expressions::expressions::Expression;
+use crate::ast::visitor::visitor::Visitor;
+use crate::ast::{ExpressionList, Program};
+use crate::tokens::Literal;
+use crate::{Visitable, whilee};
+use std::collections::HashMap;
+
+pub struct LLVMGenerator {
+    pub code: Vec<String>,
+    pub functions: Vec<String>,
+    pub temp_count: usize,
+    pub last_temp: String,
+    pub string_globals: Vec<String>,
+    pub env_stack: Vec<HashMap<String, String>>,
+    pub string_sizes: HashMap<String, usize>,
+    pub string_label_count: usize,
+    pub symbol_table: SymbolTable,
+}
+
+impl LLVMGenerator {
+    pub fn new(symbol_table: SymbolTable) -> Self {
+        LLVMGenerator {
+            code: Vec::new(),
+            functions: Vec::new(),
+            temp_count: 0,
+            last_temp: String::new(),
+            string_globals: Vec::new(),
+            env_stack: vec![HashMap::new()],
+            string_sizes: HashMap::new(),
+            string_label_count: 0,
+            symbol_table,
+        }
+    }
+    fn next_temp(&mut self) -> String {
+        let t = format!("%t{}", self.temp_count);
+        self.temp_count += 1;
+        t
+    }
+
+    pub fn llvm_header() -> Vec<String> {
+        vec![
+            "@.fmt_int = private unnamed_addr constant [4 x i8] c\"%d\\0A\\00\"".to_string(),
+            "@.fmt_str = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"".to_string(),
+            "@.true_str = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_string(),
+            "@.false_str = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_string(),
+            "declare i32 @printf(i8*, ...)".to_string(),
+            "".to_string(),
+            "define i32 @main() {".to_string(),
+        ]
+    }
+    pub fn llvm_footer() -> Vec<String> {
+        vec!["  ret i32 0".to_string(), "}".to_string()]
+    }
+
+    fn lookup_var(&self, name: &str) -> Option<&String> {
+        for scope in self.env_stack.iter().rev() {
+            if let Some(ptr) = scope.get(name) {
+                return Some(ptr);
+            }
+        }
+        None
+    }
+}
+
+impl Visitor for LLVMGenerator {
+    fn visit_access_type_prop(&mut self, access: &crate::ast::expressions::accesstypesprop::AccessTypeProp) {
+        
+    }
+    fn visit_declaration_function(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_instanting_types(&mut self, inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes) {
+        
+    }
+    fn visit_type_declaration(&mut self, decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_program(&mut self, program: &Program) {
+        program.expression_list.accept(self);
+    }
+
+    fn visit_range(&mut self, _start: &crate::ast::Expression, _end: &crate::ast::Expression) {}
+
+    fn visit_function_call(&mut self, call: &crate::ast::expressions::functioncall::FunctionCall) {
+        let (ret_type, param_types) = match self.symbol_table.lookup(&call.funct_name.name) {
+            Some(SymbolInfo::Function {
+                return_type,
+                param_types,
+            }) => (return_type.clone(), param_types.clone()),
+            _ => panic!("'{}' no es una función", call.funct_name.name),
+        };
+
+        // Evalúa los argumentos y guarda los temporales
+        let mut arg_temps = Vec::new();
+        for arg in &call.arguments {
+            arg.accept(self);
+            arg_temps.push(self.last_temp.clone());
+        }
+
+        // Prepara la lista de argumentos para el call con el tipo correcto
+        let args_llvm = arg_temps
+            .iter()
+            .zip(param_types.iter())
+            .map(|(t, ty)| match ty {
+                Type::Number => format!("i32 {}", t),
+                Type::Boolean => format!("i1 {}", t),
+                Type::String => format!("i8* {}", t),
+                Type::Custom(_) => format!("i32 {}", t), // Ajusta según tu representación
+                _ => panic!("Tipo de argumento no soportado"),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        // Determina el tipo de retorno LLVM
+        let ret_llvm = match ret_type {
+            Type::Number => "i32",
+            Type::Boolean => "i1",
+            Type::String => "i8*",
+            Type::Custom(_) => "i32", // Ajusta según tu representación
+            _ => panic!("Tipo de retorno no soportado"),
+        };
+
+        // Llama a la función y guarda el resultado en un temporal
+        let temp = self.next_temp();
+        self.code.push(format!(
+            "{temp} = call {ret_llvm} @{name}({args})",
+            temp = temp,
+            ret_llvm = ret_llvm,
+            name = call.funct_name.name,
+            args = args_llvm
+        ));
+        self.last_temp = temp.clone();
+    }
+
+    fn visit_function_def(
+        &mut self,
+        def: &crate::ast::expressions::functiondeclaration::FunctionDef,
+    ) {
+        let mut fn_code = Vec::new();
+        let fn_name = &def.name.name;
+
+        let (ret_type, param_types) = match self.symbol_table.lookup(fn_name) {
+            Some(SymbolInfo::Function {
+                return_type,
+                param_types,
+            }) => (return_type.clone(), param_types.clone()),
+            _ => panic!(
+                "Función '{}' no encontrada en la tabla de símbolos",
+                fn_name
+            ),
+        };
+
+        let params_llvm = param_types
+            .iter()
+            .enumerate()
+            .map(|(i, ty)| match ty {
+                Type::Number => format!("i32 %p{i}"),
+                Type::Boolean => format!("i1 %p{i}"),
+                Type::String => format!("i8* %p{i}"),
+                Type::Custom(_) => format!("i32 %p{i}"), // Ajusta si tienes structs
+                _ => panic!("Tipo de parámetro no soportado"),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let ret_llvm = match ret_type {
+            Type::Number => "i32".to_string(),
+            Type::Boolean => "i1".to_string(),
+            Type::String => "i8*".to_string(),
+            Type::Custom(name) => format!("%{}*", name), // Ajusta si tienes structs
+            _ => panic!("Tipo de retorno no soportado"),
+        };
+
+        fn_code.push(format!(
+            "define {} @{}({}) {{",
+            ret_llvm, fn_name, params_llvm
+        ));
+
+        self.env_stack.push(HashMap::new());
+        for (i, param) in def.params.iter().enumerate() {
+            let unique_var = format!("{}_{}", param.name.name, self.env_stack.len());
+            let llvm_type = match &param.signature {
+                Type::Number => "i32",
+                Type::Boolean => "i1",
+                Type::String => "i8*",
+                Type::Custom(_) => "i32", // Ajusta si tienes structs
+                _ => panic!("Tipo de parámetro no soportado"),
+            };
+            fn_code.push(format!("%{unique_var} = alloca {llvm_type}"));
+            fn_code.push(format!(
+                "store {llvm_type} %p{i}, {llvm_type}* %{unique_var}"
+            ));
+            self.env_stack
+                .last_mut()
+                .unwrap()
+                .insert(param.name.name.clone(), format!("%{unique_var}"));
+        }
+
+        // Guarda el código generado temporalmente
+        let old_code = std::mem::replace(&mut self.code, Vec::new());
+        def.body.accept(self);
+        fn_code.extend(self.code.drain(..));
+        fn_code.push(format!("ret {} {}", ret_llvm, self.last_temp));
+        self.env_stack.pop();
+        fn_code.push("}".to_string());
+        self.code = old_code;
+
+        self.functions.extend(fn_code);
+    }
+
+    fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+    }
+
+    fn visit_expression(&mut self, expr: &Expression) {
+        expr.accept(self);
+    }
+
+    fn visit_atom(&mut self, atom: &Atom) {
+        match atom {
+            Atom::NumberLiteral(lit) => self.visit_literal(lit),
+            Atom::BooleanLiteral(lit) => self.visit_literal(lit),
+            Atom::StringLiteral(lit) => self.visit_literal(lit),
+            Atom::Variable(identifier) => {
+                let ptr = self
+                    .lookup_var(&identifier.name)
+                    .unwrap_or_else(|| panic!("Variable {} not found in scope", identifier.name))
+                    .clone();
+                let temp = self.next_temp();
+
+                self.code.push(format!(
+                    "{temp} = load i32, i32* {ptr}",
+                    temp = temp,
+                    ptr = ptr
+                ));
+                self.last_temp = temp;
+            }
+            Atom::Group(group) => {
+                group.accept(self);
+            }
+        }
+    }
+
+    fn visit_binary_op(&mut self, binop: &BinaryOp) {
+        use crate::tokens::BinOp;
+        match &binop.operator {
+            BinOp::Assign(_) => {
+                // Lado izquierdo debe ser una variable
+                if let Expression::Atom(atom) = &*binop.left {
+                    if let Atom::Variable(identifier) = &**atom {
+                        let ptr = self
+                            .lookup_var(&identifier.name)
+                            .unwrap_or_else(|| {
+                                panic!("Variable {} not found in scope", identifier.name)
+                            })
+                            .clone();
+                        binop.right.accept(self);
+                        let value = self.last_temp.clone();
+                        self.code.push(format!("store i32 {}, i32* {}", value, ptr));
+                        self.last_temp = value; // := devuelve el valor asignado
+                        return;
+                    }
+                }
+                panic!("Left side of := must be a variable");
+            }
+            // Operadores booleanos y de comparación
+            BinOp::EqualEqual(_)
+            | BinOp::NotEqual(_)
+            | BinOp::Less(_)
+            | BinOp::LessEqual(_)
+            | BinOp::Greater(_)
+            | BinOp::GreaterEqual(_) => {
+                binop.left.accept(self);
+                let left = self.last_temp.clone();
+                binop.right.accept(self);
+                let right = self.last_temp.clone();
+                let temp = self.next_temp();
+                let op = match &binop.operator {
+                    BinOp::EqualEqual(_) => "eq",
+                    BinOp::NotEqual(_) => "ne",
+                    BinOp::Less(_) => "slt",
+                    BinOp::LessEqual(_) => "sle",
+                    BinOp::Greater(_) => "sgt",
+                    BinOp::GreaterEqual(_) => "sge",
+                    _ => unreachable!(),
+                };
+                self.code.push(format!(
+                    "{temp} = icmp {op} i32 {left}, {right}",
+                    temp = temp,
+                    op = op,
+                    left = left,
+                    right = right
+                ));
+                self.last_temp = temp;
+            }
+            // Operadores lógicos (AND, OR)
+            BinOp::AndAnd(_) | BinOp::OrOr(_) => {
+                binop.left.accept(self);
+                let left = self.last_temp.clone();
+                binop.right.accept(self);
+                let right = self.last_temp.clone();
+                let temp = self.next_temp();
+                let op = match &binop.operator {
+                    BinOp::AndAnd(_) => "and",
+                    BinOp::OrOr(_) => "or",
+                    _ => unreachable!(),
+                };
+                self.code.push(format!(
+                    "{temp} = {op} i1 {left}, {right}",
+                    temp = temp,
+                    op = op,
+                    left = left,
+                    right = right
+                ));
+                self.last_temp = temp;
+            }
+            // Operadores aritméticos
+            _ => {
+                binop.left.accept(self);
+                let left = self.last_temp.clone();
+                binop.right.accept(self);
+                let right = self.last_temp.clone();
+                let temp = self.next_temp();
+                let op = match &binop.operator {
+                    BinOp::Plus(_) => "add",
+                    BinOp::Minus(_) => "sub",
+                    BinOp::Mul(_) => "mul",
+                    BinOp::Div(_) => "sdiv",
+                    BinOp::Mod(_) => "srem",
+                    _ => "add",
+                };
+                self.code.push(format!("{temp} = {op} i32 {left}, {right}"));
+                self.last_temp = temp;
+            }
+        }
+    }
+
+    fn visit_for(&mut self, forr: &crate::forr::For) {
+        use crate::ast::atoms::atom::Atom;
+        use crate::ast::expressions::expressions::Expression;
+
+        // Extrae el nombre de la variable de control
+        let var_name = if let Expression::Atom(atom) = &*forr.var {
+            if let Atom::Variable(identifier) = &**atom {
+                &identifier.name
+            } else {
+                panic!("For variable must be an identifier");
+            }
+        } else {
+            panic!("For variable must be an identifier expression");
+        };
+
+        // Crea variable local para el for (scope actual)
+        let scope_depth = self.env_stack.len();
+        let unique_var = format!("{}_{}", var_name, scope_depth);
+        self.code.push(format!("%{} = alloca i32", unique_var));
+
+        // Inicializa variable (asume que el iterable es un rango: range(start, end))
+        // Evaluamos el start
+        if let Expression::Range(start, end) = &*forr.iterable {
+            start.accept(self);
+            let start_temp = self.last_temp.clone();
+            self.code
+                .push(format!("store i32 {}, i32* %{}", start_temp, unique_var));
+            // Evaluamos el end
+            end.accept(self);
+            let end_temp = self.last_temp.clone();
+
+            // Etiquetas
+            let loop_cond = self.next_temp();
+            let loop_body = self.next_temp();
+            let loop_exit = self.next_temp();
+
+            // Guardamos el puntero en el scope
+            self.env_stack
+                .last_mut()
+                .unwrap()
+                .insert(var_name.to_string(), format!("%{}", unique_var));
+
+            // Salto a condición
+            self.code
+                .push(format!("br label %{cond}", cond = &loop_cond[1..]));
+
+            // Condición
+            self.code.push(format!("{}:", &loop_cond[1..]));
+            let x_val = self.next_temp();
+            self.code.push(format!(
+                "{x_val} = load i32, i32* %{var}",
+                x_val = x_val,
+                var = unique_var
+            ));
+            let cmp = self.next_temp();
+            self.code.push(format!(
+                "{cmp} = icmp slt i32 {x_val}, {end}",
+                cmp = cmp,
+                x_val = x_val,
+                end = end_temp
+            ));
+            self.code.push(format!(
+                "br i1 {cmp}, label %{body}, label %{exit}",
+                cmp = cmp,
+                body = &loop_body[1..],
+                exit = &loop_exit[1..]
+            ));
+
+            // Cuerpo
+            self.code.push(format!("{}:", &loop_body[1..]));
+            forr.body.accept(self);
+
+            // Incremento
+            let x_val2 = self.next_temp();
+            self.code.push(format!(
+                "{x_val2} = load i32, i32* %{var}",
+                x_val2 = x_val2,
+                var = unique_var
+            ));
+            let inc = self.next_temp();
+            self.code.push(format!(
+                "{inc} = add i32 {x_val2}, 1",
+                inc = inc,
+                x_val2 = x_val2
+            ));
+            self.code.push(format!(
+                "store i32 {inc}, i32* %{var}",
+                inc = inc,
+                var = unique_var
+            ));
+            self.code
+                .push(format!("br label %{cond}", cond = &loop_cond[1..]));
+
+            // Exit
+            self.code.push(format!("{}:", &loop_exit[1..]));
+        } else {
+            panic!("For iterable must be a range expression");
+        }
+    }
+
+    fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
+        self.env_stack.push(HashMap::new()); // Nuevo scope
+
+        for assign in &letin.bindings {
+            let var_name = match &assign.variable {
+                Atom::Variable(identifier) => &identifier.name,
+                _ => panic!("Expected variable in assignment"),
+            };
+            let scope_depth = self.env_stack.len();
+            let unique_var = format!("{}_{}", var_name, scope_depth);
+            self.code.push(format!("%{} = alloca i32", unique_var));
+            assign.body.accept(self);
+            self.code.push(format!(
+                "store i32 {}, i32* %{}",
+                self.last_temp, unique_var
+            ));
+            // Guarda el puntero en el scope actual
+            self.env_stack
+                .last_mut()
+                .unwrap()
+                .insert(var_name.clone(), format!("%{}", unique_var));
+        }
+
+        letin.body.accept(self);
+
+        self.env_stack.pop(); // Sale del scope
+    }
+
+    fn visit_assignment(&mut self, _assign: &crate::ast::expressions::letin::Assignment) {}
+
+    fn visit_block(&mut self, block: &crate::ast::expressions::block::Block) {
+        self.env_stack.push(HashMap::new()); // Nuevo scope
+
+        block.expression_list.accept(self);
+
+        self.env_stack.pop(); // Sale del scope
+    }
+
+    fn visit_literal(&mut self, literal: &Literal) {
+        let temp = self.next_temp();
+        match literal {
+            Literal::Number(n, _) => {
+                self.code.push(format!("{temp} = add i32 0, {n}"));
+                self.last_temp = temp;
+            }
+            Literal::Bool(val, _) => {
+                let bool_val = if *val { 1 } else { 0 };
+                self.code.push(format!(
+                    "{temp} = icmp eq i1 {bool_val}, 1",
+                    temp = temp,
+                    bool_val = bool_val
+                ));
+                self.last_temp = temp;
+            }
+            Literal::Str(s, _) => {
+                let label = format!("@.str_{}", self.string_label_count);
+                let bytes = s.as_bytes();
+                let len = bytes.len() + 1;
+                self.string_globals.push(format!(
+                    "{label} = private unnamed_addr constant [{len} x i8] c\"{s}\\00\"",
+                    label = label,
+                    len = len,
+                    s = s.replace("\\", "\\5C").replace("\"", "\\22")
+                ));
+                self.string_sizes.insert(label.clone(), len);
+                self.last_temp = label;
+                self.string_label_count += 1;
+            }
+        }
+    }
+
+    fn visit_identifier(&mut self, _identifier: &crate::tokens::Identifier) {}
+
+    fn visit_print(&mut self, expr: &Expression) {
+        use crate::ast::atoms::atom::Atom;
+        expr.accept(self);
+
+        if let Expression::Atom(atom) = expr {
+            if let Atom::StringLiteral(_) = &**atom {
+                let label = self.last_temp.clone();
+                let len = *self.string_sizes.get(&label).unwrap_or(&0);
+                let fmt_ptr = self.next_temp();
+                let str_ptr = self.next_temp();
+                self.code.push(format!(
+                    "{fmt_ptr} = getelementptr [4 x i8], [4 x i8]* @.fmt_str, i32 0, i32 0",
+                    fmt_ptr = fmt_ptr
+                ));
+                self.code.push(format!(
+                    "{str_ptr} = getelementptr [{len} x i8], [{len} x i8]* {label}, i32 0, i32 0",
+                    str_ptr = str_ptr,
+                    len = len,
+                    label = label
+                ));
+                self.code.push(format!(
+                    "call i32 (i8*, ...) @printf(i8* {fmt_ptr}, i8* {str_ptr})",
+                    fmt_ptr = fmt_ptr,
+                    str_ptr = str_ptr
+                ));
+                return;
+            }
+            if let Atom::BooleanLiteral(_) = &**atom {
+                // Imprime como "true"/"false"
+                let bool_temp = self.last_temp.clone();
+                let true_ptr = self.next_temp();
+                let false_ptr = self.next_temp();
+                let result_ptr = self.next_temp();
+                self.code.push(format!(
+                "{true_ptr} = getelementptr inbounds [5 x i8], [5 x i8]* @.true_str, i32 0, i32 0"
+            ));
+                self.code.push(format!(
+                "{false_ptr} = getelementptr inbounds [6 x i8], [6 x i8]* @.false_str, i32 0, i32 0"
+            ));
+                self.code.push(format!(
+                    "{result_ptr} = select i1 {cond}, i8* {true_ptr}, i8* {false_ptr}",
+                    result_ptr = result_ptr,
+                    cond = bool_temp,
+                    true_ptr = true_ptr,
+                    false_ptr = false_ptr
+                ));
+                let fmt_ptr = self.next_temp();
+                self.code.push(format!(
+                    "{fmt_ptr} = getelementptr [4 x i8], [4 x i8]* @.fmt_str, i32 0, i32 0",
+                    fmt_ptr = fmt_ptr
+                ));
+                self.code.push(format!(
+                    "call i32 (i8*, ...) @printf(i8* {fmt_ptr}, i8* {result_ptr})",
+                    fmt_ptr = fmt_ptr,
+                    result_ptr = result_ptr
+                ));
+                return;
+            }
+        }
+        self.code.push(format!(
+            "call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.fmt_int, i32 0, i32 0), i32 {})",
+            self.last_temp
+        ));
+    }
+
+    fn visit_while(&mut self, whilee: &whilee::While) {
+        let cond_label = self.next_temp();
+        let body_label = self.next_temp();
+        let end_label = self.next_temp();
+
+        // Salto a la condición
+        self.code
+            .push(format!("br label %{cond}", cond = &cond_label[1..]));
+
+        // Etiqueta de condición
+        self.code.push(format!("{}:", &cond_label[1..]));
+        whilee.cond.accept(self);
+        let cond_temp = self.last_temp.clone();
+        self.code.push(format!(
+            "br i1 {cond}, label %{body}, label %{end}",
+            cond = cond_temp,
+            body = &body_label[1..],
+            end = &end_label[1..]
+        ));
+
+        // Etiqueta de cuerpo
+        self.code.push(format!("{}:", &body_label[1..]));
+        whilee.body.accept(self);
+        // Al terminar el cuerpo, vuelve a la condición
+        self.code
+            .push(format!("br label %{cond}", cond = &cond_label[1..]));
+
+        // Etiqueta de fin
+        self.code.push(format!("{}:", &end_label[1..]));
+    }
+
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        // Genera etiquetas únicas para cada bloque
+        let then_label = format!("then{}", self.temp_count);
+        let else_label = format!("else{}", self.temp_count);
+        let merge_label = format!("merge{}", self.temp_count);
+        self.temp_count += 1;
+
+        // Evalúa la condición principal
+        ifelse.condition.accept(self);
+        let cond_temp = self.last_temp.clone();
+
+        // Salto condicional
+        self.code.push(format!(
+            "br i1 {}, label %{}, label %{}",
+            cond_temp, then_label, else_label
+        ));
+
+        // THEN branch
+        self.code.push(format!("{}:", then_label));
+        ifelse.then_branch.accept(self);
+        let then_result = self.last_temp.clone();
+        self.code.push(format!("br label %{}", merge_label));
+
+        // ELSE branch (puede ser otro ifelse, o un bloque, o nada)
+        self.code.push(format!("{}:", else_label));
+        let else_result = if let Some(else_branch) = &ifelse.else_branch {
+            // Si el else es otro IfElse (elif), lo procesamos recursivamente
+            if let Expression::IfElse(elif) = &**else_branch {
+                self.visit_ifelse(elif);
+                self.last_temp.clone()
+            } else {
+                // Es un bloque normal
+                else_branch.accept(self);
+                self.last_temp.clone()
+            }
+        } else {
+            // Si no hay else, valor por defecto
+            let zero_temp = self.next_temp();
+            self.code.push(format!("{} = add i32 0, 0", zero_temp));
+            zero_temp
+        };
+        self.code.push(format!("br label %{}", merge_label));
+
+        // MERGE
+        self.code.push(format!("{}:", merge_label));
+        let phi_temp = self.next_temp();
+        self.code.push(format!(
+            "{} = phi i32 [ {}, %{} ], [ {}, %{} ]",
+            phi_temp, then_result, then_label, else_result, else_label
+        ));
+        self.last_temp = phi_temp;
+    }
+
+    fn visit_group(&mut self, group: &crate::ast::atoms::group::Group) {
+        group.expression.accept(self);
+    }
+
+    fn visit_unary_op(&mut self, unary_op: &crate::ast::expressions::unaryoperation::UnaryOp) {
+        unary_op.expr.accept(self);
+        let expr_temp = self.last_temp.clone();
+        let temp = self.next_temp();
+        match unary_op.op {
+            crate::tokens::UnaryOp::Minus(_) => {
+                self.code.push(format!(
+                    "{temp} = sub i32 0, {expr}",
+                    temp = temp,
+                    expr = expr_temp
+                ));
+            }
+            crate::tokens::UnaryOp::Not(_) => {
+                self.code.push(format!(
+                    "{temp} = xor i1 {expr}, true",
+                    temp = temp,
+                    expr = expr_temp
+                ));
+            }
+            _ => {
+                panic!("Unsupported unary operation: {:?}", unary_op.op);
+            }
+        }
+        self.last_temp = temp;
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/ast/visitor/semantic_type_checker.rs =====
+
+use super::symbol_table::{SymbolInfo, SymbolTable};
+use super::types::Type;
+use crate::ast::visitor::visitor::Visitor;
+use crate::ast::*;
+use crate::tokens::*;
+
+#[derive(Debug, Clone)]
+pub struct SemanticTypeChecker {
+    pub symbol_table: SymbolTable,
+    pub errors: Vec<String>,
+    pub input: String, // NUEVO
+}
+
+impl SemanticTypeChecker {
+    pub fn new(input: String) -> Self {
+        SemanticTypeChecker {
+            symbol_table: SymbolTable::new(),
+            errors: Vec::new(),
+            input,
+        }
+    }
+
+    pub fn check(&mut self, program: &Program) {
+        program.accept(self);
+    }
+
+    fn type_of_atom(&mut self, atom: &Atom) -> Type {
+        match atom {
+            Atom::NumberLiteral(_) => Type::Number,
+            Atom::BooleanLiteral(_) => Type::Boolean,
+            Atom::StringLiteral(_) => Type::String,
+            Atom::Variable(ident) => {
+                if let Some(SymbolInfo::Variable { var_type }) =
+                    self.symbol_table.lookup(&ident.name)
+                {
+                    var_type.clone()
+                } else {
+                    self.errors
+                        .push(format!("Línea {}: Variable '{}' no declarada", 
+                                     ident.position.start_line(&self.input), ident.name));
+                    Type::Unknown
+                }
+            }
+            _ => Type::Unknown,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn get_position_info(&self, position: &Position) -> String {
+        format!("Línea {}", position.start + 1)
+    }
+
+    fn infer_expr_type(&mut self, expr: &Expression) -> Type {
+        match expr {
+            Expression::Atom(atom) => self.type_of_atom(atom),
+            Expression::FunctionCall(call) => {
+                if let Some(SymbolInfo::Function { return_type, .. }) =
+                    self.symbol_table.lookup(&call.funct_name.name)
+                {
+                    return_type.clone()
+                } else {
+                    self.errors
+                        .push(format!("Línea {}: Función '{}' no declarada", 
+                                     call.funct_name.position.start_line(&self.input), call.funct_name.name));
+                    Type::Unknown
+                }
+            }
+
+            Expression::BinaryOp(binop) => {
+                let left_ty = self.infer_expr_type(&binop.left);
+                let right_ty = self.infer_expr_type(&binop.right);
+                use crate::tokens::BinOp;
+                match &binop.operator {
+                    BinOp::Plus(pos)
+                    | BinOp::Minus(pos)
+                    | BinOp::Mul(pos)
+                    | BinOp::Div(pos)
+                    | BinOp::Mod(pos) => {
+                        if left_ty != Type::Number || right_ty != Type::Number {
+                            self.errors
+                                .push(format!("Línea {}: Operación aritmética requiere números", 
+                                             pos.start_line(&self.input)));
+                        }
+                        Type::Number
+                    }
+                    BinOp::EqualEqual(pos)
+                    | BinOp::NotEqual(pos)
+                    | BinOp::Greater(pos)
+                    | BinOp::Less(pos)
+                    | BinOp::GreaterEqual(pos)
+                    | BinOp::LessEqual(pos)
+                    | BinOp::AndAnd(pos)
+                    | BinOp::OrOr(pos) => {
+                        if left_ty != right_ty {
+                            self.errors
+                                .push(format!("Línea {}: Comparación entre tipos incompatibles", 
+                                             pos.start_line(&self.input)));
+                        }
+                        Type::Boolean
+                    }
+                    BinOp::ConcatString(pos) => {
+                        if !(left_ty == Type::String || left_ty == Type::Number)
+                            || !(right_ty == Type::String || right_ty == Type::Number)
+                        {
+                            self.errors
+                                .push(format!("Línea {}: Concatenación requiere string o número", 
+                                             pos.start_line(&self.input)));
+                        }
+                        Type::String
+                    }
+                    _ => Type::Unknown,
+                }
+            }
+            // Agrega aquí otros casos según tu AST
+            _ => Type::Unknown,
+        }
+    }
+
+    fn get_expression_line(&self, expr: &Expression) -> Option<usize> {
+        match expr {
+            Expression::Atom(atom) => match &**atom {
+                Atom::Variable(ident) => Some(ident.position.start_line(&self.input)),
+                _ => None,
+            },
+            Expression::BinaryOp(binop) => match &binop.operator {
+                BinOp::Plus(pos)
+                | BinOp::Minus(pos)
+                | BinOp::Mul(pos)
+                | BinOp::Div(pos)
+                | BinOp::Mod(pos)
+                | BinOp::EqualEqual(pos)
+                | BinOp::NotEqual(pos)
+                | BinOp::Greater(pos)
+                | BinOp::Less(pos)
+                | BinOp::GreaterEqual(pos)
+                | BinOp::LessEqual(pos)
+                | BinOp::AndAnd(pos)
+                | BinOp::OrOr(pos)
+                | BinOp::ConcatString(pos)
+                | BinOp::Assign(pos) => Some(pos.start_line(&self.input)),
+                _ => None,
+            },
+            Expression::FunctionCall(call) => Some(call.funct_name.position.start_line(&self.input)),
+            _ => None,
+        }
+    }
+}
+
+impl Visitor for SemanticTypeChecker {
+    fn visit_access_type_prop(&mut self, _access: &crate::ast::expressions::accesstypesprop::AccessTypeProp) {
+        
+    }
+    fn visit_declaration_function(&mut self, _decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_instanting_types(&mut self, _inst: &crate::ast::expressions::instantiatingtypes::InstantingTypes) {
+        
+    }
+    fn visit_type_declaration(&mut self, _decl: &crate::ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_program(&mut self, program: &Program) {
+        program.expression_list.accept(self);
+    }
+
+    fn visit_expression_list(&mut self, expr_list: &ExpressionList) {
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+    }
+
+    fn visit_expression(&mut self, expr: &Expression) {
+        expr.accept(self);
+    }
+
+    fn visit_block(&mut self, block: &expressions::block::Block) {
+        self.symbol_table.enter_scope();
+        block.expression_list.accept(self);
+        self.symbol_table.exit_scope();
+    }
+
+    fn visit_print(&mut self, expr: &Expression) {
+        expr.accept(self);
+    }
+
+    fn visit_literal(&mut self, _literal: &Literal) {
+        // match literal {
+        //     Literal::Number(_, _) => {}
+        //     Literal::Bool(_, _) => {}
+        //     Literal::Str(_, _) => {}
+        // }
+    }
+
+    fn visit_group(&mut self, group: &atoms::group::Group) {
+        group.expression.accept(self);
+    }
+
+    fn visit_for(&mut self, forr: &forr::For) {
+        forr.iterable.accept(self);
+        self.symbol_table.enter_scope();
+        forr.var.accept(self);
+        forr.body.accept(self);
+        self.symbol_table.exit_scope();
+    }
+
+    fn visit_range(&mut self, start: &Expression, end: &Expression) {
+        start.accept(self);
+        end.accept(self);
+    }
+
+    fn visit_identifier(&mut self, _identifier: &Identifier) {}
+
+    fn visit_unary_op(&mut self, unop: &expressions::unaryoperation::UnaryOp) {
+        unop.expr.accept(self);
+    }
+
+    fn visit_function_def(&mut self, def: &expressions::functiondeclaration::FunctionDef) {
+        let param_types = def.params.iter().map(|p| p.signature.clone()).collect();
+        self.symbol_table.insert(
+            def.name.name.clone(),
+            SymbolInfo::Function {
+                return_type: def.return_type.clone(),
+                param_types,
+            },
+        );
+        self.symbol_table.enter_scope();
+        for param in &def.params {
+            self.symbol_table.insert(
+                param.name.name.clone(),
+                SymbolInfo::Variable {
+                    var_type: param.signature.clone(),
+                },
+            );
+        }
+        def.body.accept(self);
+        self.symbol_table.exit_scope();
+    }
+
+    fn visit_function_call(&mut self, call: &expressions::functioncall::FunctionCall) {
+        if let Some(SymbolInfo::Function { param_types, .. }) =
+            self.symbol_table.lookup(&call.funct_name.name)
+        {
+            let param_types = param_types.clone();
+            if param_types.len() != call.arguments.len() {
+                self.errors.push(format!(
+                    "Línea {}: Función '{}' espera {} argumentos, pero se pasaron {}.",
+                    call.funct_name.position.start_line(&self.input),
+                    call.funct_name.name,
+                    param_types.len(),
+                    call.arguments.len()
+                ));
+            }
+            for (arg, expected_type) in call.arguments.iter().zip(param_types.iter()) {
+                let arg_type = self.infer_expr_type(arg);
+                if &arg_type != expected_type {
+                    self.errors.push(format!(
+                "Línea {}: El argumento tiene tipo '{:?}', pero se esperaba '{:?}' en la función '{}'.",
+                call.funct_name.position.start_line(&self.input), arg_type, expected_type, call.funct_name.name
+            ));
+                }
+            }
+        } else {
+            self.errors
+                .push(format!("Línea {}: Función '{}' no declarada.", 
+                             call.funct_name.position.start_line(&self.input), call.funct_name.name));
+        }
+        for arg in &call.arguments {
+            arg.accept(self);
+        }
+    }
+
+    fn visit_atom(&mut self, atom: &atoms::atom::Atom) {
+        if let atoms::atom::Atom::Variable(ident) = atom {
+            if self.symbol_table.lookup(&ident.name).is_none() {
+                self.errors
+                    .push(format!("Línea {}: Variable '{}' no declarada.", 
+                                 ident.position.start_line(&self.input), ident.name));
+            }
+        }
+    }
+
+    fn visit_assignment(&mut self, assign: &expressions::letin::Assignment) {
+        if let atoms::atom::Atom::Variable(ident) = &assign.variable {
+            let assigned_type = self.infer_expr_type(&assign.body);
+            self.symbol_table.insert(
+                ident.name.clone(),
+                SymbolInfo::Variable {
+                    var_type: assigned_type,
+                },
+            );
+        }
+        assign.body.accept(self);
+    }
+
+    fn visit_letin(&mut self, letin: &expressions::letin::LetIn) {
+        self.symbol_table.enter_scope();
+        for assign in &letin.bindings {
+            assign.accept(self);
+        }
+        letin.body.accept(self);
+        self.symbol_table.exit_scope();
+    }
+
+    fn visit_binary_op(&mut self, binop: &crate::ast::expressions::binoperation::BinaryOp) {
+        binop.left.accept(self);
+        binop.right.accept(self);
+        use crate::tokens::BinOp;
+        let left_ty = self.infer_expr_type(&binop.left);
+        let right_ty = self.infer_expr_type(&binop.right);
+
+        match &binop.operator {
+            BinOp::Plus(pos) | BinOp::Minus(pos) | BinOp::Mul(pos) | BinOp::Div(pos) | BinOp::Mod(pos) => {
+                if left_ty != Type::Number || right_ty != Type::Number {
+                    self.errors
+                        .push(format!("Línea {}: Operación aritmética requiere números", 
+                                     pos.start_line(&self.input)));
+                }
+            }
+            BinOp::EqualEqual(pos)
+            | BinOp::NotEqual(pos)
+            | BinOp::Greater(pos)
+            | BinOp::Less(pos)
+            | BinOp::GreaterEqual(pos)
+            | BinOp::LessEqual(pos) => {
+                if left_ty != right_ty {
+                    self.errors
+                        .push(format!("Línea {}: Comparación entre tipos incompatibles", 
+                                     pos.start_line(&self.input)));
+                }
+            }
+            BinOp::AndAnd(pos) | BinOp::OrOr(pos) => {
+                if left_ty != Type::Boolean || right_ty != Type::Boolean {
+                    self.errors
+                        .push(format!("Línea {}: Operador lógico requiere booleanos", 
+                                     pos.start_line(&self.input)));
+                }
+            }
+            BinOp::ConcatString(pos) => {
+                if !(left_ty == Type::String || left_ty == Type::Number)
+                    || !(right_ty == Type::String || right_ty == Type::Number)
+                {
+                    self.errors
+                        .push(format!("Línea {}: Concatenación requiere string o número", 
+                                     pos.start_line(&self.input)));
+                }
+            }
+            BinOp::Assign(_) => { /* handled in assignment */ }
+            _ => {}
+        }
+    }
+
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        ifelse.condition.accept(self);
+        let cond_ty = self.infer_expr_type(&ifelse.condition);
+        if cond_ty != Type::Boolean {
+            let line = self.get_expression_line(&ifelse.condition)
+                .map(|l| format!("Línea {}: ", l))
+                .unwrap_or_default();
+            self.errors
+                .push(format!("{}Condición de if debe ser booleana", line));
+        }
+        ifelse.then_branch.accept(self);
+        for (_, cond, branch) in &ifelse.elif_branches {
+            cond.accept(self);
+            let t = self.infer_expr_type(cond);
+            if t != Type::Boolean {
+                let line = self.get_expression_line(cond)
+                    .map(|l| format!("Línea {}: ", l))
+                    .unwrap_or_default();
+                self.errors
+                    .push(format!("{}Condición de elif debe ser booleana", line));
+            }
+            branch.accept(self);
+        }
+        if let Some(branch) = &ifelse.else_branch {
+            branch.accept(self);
+        }
+    }
+
+    fn visit_while(&mut self, whilee: &crate::ast::expressions::whilee::While) {
+        whilee.cond.accept(self);
+        let cond_ty = self.infer_expr_type(&whilee.cond);
+        if cond_ty != Type::Boolean {
+            self.errors
+                .push("Condición de while debe ser booleana".to_string());
+        }
+        whilee.body.accept(self);
+    }
+
+    // Implementa los demás métodos igual que antes, usando self.errors para reportar problemas
+    // ...
+}
+
+
+===== ARCHIVO: ./parser/src/ast/visitor/type_checker.rs =====
+
+use crate::ast;
+// use crate::ast::expressions::binoperation::BinaryOp;
+use crate::ast::visitor::{Visitable, Visitor};
+use crate::tokens;
+// use crate::tokens::BinOp;
+use crate::visitor::Type;
+
+use std::collections::HashMap;
+
+pub struct TypeChecker {
+    pub errors: Vec<String>,
+    scopes: Vec<HashMap<String, Type>>,
+}
+
+impl TypeChecker {
+    pub fn new() -> Self {
+        TypeChecker {
+            errors: Vec::new(),
+            scopes: vec![HashMap::new()],
+        }
+    }
+
+    fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn exit_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    fn declare_var(&mut self, name: &str, ty: Type) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name.to_string(), ty);
+        }
+    }
+
+    fn lookup_var(&self, name: &str) -> Option<Type> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(ty) = scope.get(name) {
+                return Some(ty.clone());
+            }
+        }
+        None
+    }
+}
+
+impl Visitor for TypeChecker {
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp) {
+        
+    }
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes) {
+        
+    }
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes) {
+        
+    }
+    fn visit_atom(&mut self, _atom: &ast::atoms::atom::Atom) {
+        
+    }
+    fn visit_block(&mut self, _block: &ast::expressions::block::Block) {
+        
+    }
+    fn visit_expression(&mut self, _expr: &ast::Expression) {
+        
+    }
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList) {
+        for expr in &expr_list.expressions {
+            expr.accept(self);
+        }
+    }
+    fn visit_for(&mut self, _forr: &ast::forr::For) {
+        
+    }
+    fn visit_group(&mut self, _group: &ast::atoms::group::Group) {
+        
+    }
+    fn visit_identifier(&mut self, _identifier: &tokens::Identifier) {
+        
+    }
+    fn visit_literal(&mut self, _literal: &tokens::Literal) {
+        
+    }
+    fn visit_print(&mut self, expr: &ast::Expression) {
+        expr.accept(self);
+    }
+    fn visit_program(&mut self, program: &ast::Program) {
+        program.expression_list.accept(self);
+    }
+    fn visit_range(&mut self, _start: &ast::Expression, _end: &ast::Expression) {
+        
+    }
+    fn visit_unary_op(&mut self, _unary_op: &ast::expressions::unaryoperation::UnaryOp) {
+        
+    }
+
+    fn visit_letin(&mut self, letin: &crate::ast::expressions::letin::LetIn) {
+        self.enter_scope();
+        for assign in &letin.bindings {
+            assign.accept(self);
+        }
+        letin.body.accept(self);
+        self.exit_scope();
+    }
+
+    fn visit_assignment(&mut self, assign: &crate::ast::expressions::letin::Assignment) {
+        let var_name = if let crate::ast::atoms::atom::Atom::Variable(id) = &assign.variable {
+            id.name.clone()
+        } else {
+            "<anon>".to_string()
+        };
+        assign.body.accept(self);
+        let ty = self.infer_expr_type(&assign.body);
+        self.declare_var(&var_name, ty);
+    }
+
+    fn visit_binary_op(&mut self, binop: &crate::ast::expressions::binoperation::BinaryOp) {
+        binop.left.accept(self);
+        binop.right.accept(self);
+        use crate::tokens::BinOp;
+        let left_ty = self.infer_expr_type(&binop.left);
+        let right_ty = self.infer_expr_type(&binop.right);
+
+        match &binop.operator {
+            BinOp::Plus(_) | BinOp::Minus(_) | BinOp::Mul(_) | BinOp::Div(_) | BinOp::Mod(_) => {
+                if left_ty != Type::Number || right_ty != Type::Number {
+                    self.errors.push("Operación aritmética requiere números".to_string());
+                }
+            }
+            BinOp::EqualEqual(_) | BinOp::NotEqual(_) | BinOp::Greater(_)
+            | BinOp::Less(_) | BinOp::GreaterEqual(_) | BinOp::LessEqual(_) => {
+                if left_ty != right_ty {
+                    self.errors.push("Comparación entre tipos incompatibles".to_string());
+                }
+            }
+            BinOp::AndAnd(_) | BinOp::OrOr(_) => {
+                if left_ty != Type::Boolean || right_ty != Type::Boolean {
+                    self.errors.push("Operador lógico requiere booleanos".to_string());
+                }
+            }
+            BinOp::ConcatString(_) => {
+                if !(left_ty == Type::String || left_ty == Type::Number) ||
+                   !(right_ty == Type::String || right_ty == Type::Number) {
+                    self.errors.push("Concatenación requiere string o número".to_string());
+                }
+            }
+            BinOp::Assign(_) => { /* handled in assignment */ }
+            _ => {}
+        }
+    }
+
+    fn visit_ifelse(&mut self, ifelse: &crate::ast::expressions::ifelse::IfElse) {
+        ifelse.condition.accept(self);
+        let cond_ty = self.infer_expr_type(&ifelse.condition);
+        if cond_ty != Type::Boolean {
+            self.errors.push("Condición de if debe ser booleana".to_string());
+        }
+        ifelse.then_branch.accept(self);
+        for (_, cond, branch) in &ifelse.elif_branches {
+            cond.accept(self);
+            let t = self.infer_expr_type(cond);
+            if t != Type::Boolean {
+                self.errors.push("Condición de elif debe ser booleana".to_string());
+            }
+            branch.accept(self);
+        }
+        if let Some(branch) = &ifelse.else_branch {
+            branch.accept(self);
+        }
+    }
+
+    fn visit_while(&mut self, whilee: &crate::ast::expressions::whilee::While) {
+        whilee.cond.accept(self);
+        let cond_ty = self.infer_expr_type(&whilee.cond);
+        if cond_ty != Type::Boolean {
+            self.errors.push("Condición de while debe ser booleana".to_string());
+        }
+        whilee.body.accept(self);
+    }
+    fn visit_function_call(&mut self, _call: &ast::expressions::functioncall::FunctionCall) {
+        
+    }
+    fn visit_function_def(&mut self, _def: &ast::expressions::functiondeclaration::FunctionDef) {
+        
+    }
+
+    // ...
+}
+
+impl TypeChecker {
+    fn infer_expr_type(&mut self, expr: &crate::ast::Expression) -> Type {
+        use crate::ast::Expression;
+        use crate::ast::atoms::atom::Atom;
+        match expr {
+            Expression::Atom(atom) => match &**atom {
+                Atom::NumberLiteral(_) => Type::Number,
+                Atom::BooleanLiteral(_) => Type::Boolean,
+                Atom::StringLiteral(_) => Type::String,
+                Atom::Variable(id) => {
+                    match self.lookup_var(&id.name) {
+                        Some(ty) => ty,
+                        None => {
+                            self.errors.push(format!("Variable '{}' no está declarada", id.name));
+                            Type::Unknown
+                        }
+                    }
+                }
+                _ => Type::Unknown,
+            },
+            Expression::BinaryOp(binop) => {
+                use crate::tokens::BinOp;
+                let _left = self.infer_expr_type(&binop.left);
+                let _right = self.infer_expr_type(&binop.right);
+                match &binop.operator {
+                    BinOp::Plus(_) | BinOp::Minus(_) | BinOp::Mul(_) | BinOp::Div(_) | BinOp::Mod(_) => Type::Number,
+                    BinOp::EqualEqual(_) | BinOp::NotEqual(_) | BinOp::Greater(_)
+                    | BinOp::Less(_) | BinOp::GreaterEqual(_) | BinOp::LessEqual(_)
+                    | BinOp::AndAnd(_) | BinOp::OrOr(_) => Type::Boolean,
+                    BinOp::ConcatString(_) => Type::String,
+                    _ => Type::Unknown,
+                }
+            }
+            _ => Type::Unknown,
+        }
+    }
+}
+
+===== ARCHIVO: ./parser/src/ast/visitor/visitor.rs =====
+
+use crate::ast;
+use crate::tokens;
+use crate::whilee;
+use crate::forr;
+pub trait Visitor {
+    fn visit_program(&mut self, program: &ast::Program);
+    fn visit_expression_list(&mut self, expr_list: &ast::ExpressionList);
+    fn visit_expression(&mut self, expr: &ast::Expression);
+    fn visit_atom(&mut self, atom: &ast::atoms::atom::Atom);
+    fn visit_binary_op(&mut self, binop: &ast::expressions::binoperation::BinaryOp);
+    fn visit_letin(&mut self, letin: &ast::expressions::letin::LetIn);
+    fn visit_assignment(&mut self, assign: &ast::expressions::letin::Assignment);
+    fn visit_block(&mut self, block: &ast::expressions::block::Block);
+    fn visit_literal(&mut self, literal: &tokens::Literal);
+    fn visit_identifier(&mut self, identifier: &tokens::Identifier);
+    fn visit_print(&mut self, expr: &ast::Expression);
+    fn visit_while(&mut self, whilee: &whilee::While);
+    fn visit_ifelse(&mut self, ifelse: &ast::expressions::ifelse::IfElse);
+    fn visit_group(&mut self, group: &ast::atoms::group::Group);
+    fn visit_unary_op(&mut self, unary_op: &ast::expressions::unaryoperation::UnaryOp);
+    fn visit_for(&mut self, forr: &forr::For);
+    fn visit_range(&mut self, start: &ast::Expression, end: &ast::Expression);
+    fn visit_function_call(&mut self, call: &ast::expressions::functioncall::FunctionCall);
+    fn visit_function_def(&mut self, def: &ast::expressions::functiondeclaration::FunctionDef);
+    fn visit_declaration_function(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes);
+    fn visit_instanting_types(&mut self, inst: &ast::expressions::instantiatingtypes::InstantingTypes);
+    fn visit_access_type_prop(&mut self, access: &ast::expressions::accesstypesprop::AccessTypeProp);
+    fn visit_type_declaration(&mut self, decl: &ast::expressions::declarationtypes::Declarationtypes);
+    
+    
+}
+
+pub trait Visitable {
+    fn accept<V: Visitor>(&self, visitor: &mut V);
+}
+
+
+===== ARCHIVO: ./parser/src/errors.rs =====
+
+use crate::tokens::Position;
+use crate::ast::Program;
+use crate::grammar::{ProgramParser, Token};
+use lalrpop_util::ParseError as LalrpopError;
+
+#[derive(Debug)]
+pub struct ParseError {
+    pub message: String,
+    pub line: Option<usize>, // Solo la línea donde ocurre el error
+}
+
+impl ParseError {
+    pub fn new<S: Into<String>>(message: S, line: Option<usize>) -> Self {
+        Self {
+            message: message.into(),
+            line,
+        }
+    }
+}
+
+/// Punto de entrada del parser con manejo de errores
+pub fn parse_program(input: &str) -> Result<Program, ParseError> {
+    let parser = ProgramParser::new();
+    match parser.parse(input) {
+        Ok(program) => Ok(program),
+        Err(err) => Err(map_lalrpop_error(err, input)),
+    }
+}
+
+fn map_lalrpop_error(err: LalrpopError<usize, Token, &str>, input: &str) -> ParseError {
+    use lalrpop_util::ParseError::*;
+
+    // Función auxiliar para ajustar la línea si la posición apunta al inicio de una línea
+    fn adjusted_line(pos: Position, input: &str) -> usize {
+        let line = pos.start_line(input);
+        // Si la posición start es mayor que 0 y el carácter anterior es '\n', restar 1
+        if pos.start > 0 {
+            if let Some(prev_char) = input.chars().nth(pos.start - 1) {
+                if prev_char == '\n' {
+                    return line.saturating_sub(1);
+                }
+            }
+        }
+        line
+    }
+
+    match err {
+        InvalidToken { location } => {
+            let pos = Position::new(location, location);
+            ParseError::new("Token inválido", Some(adjusted_line(pos, input)))
+        }
+        UnrecognizedToken { token: (start, _, end), expected } => {
+            let pos = Position::new(start, end);
+            ParseError::new(
+                format!("Token no reconocido, se esperaba uno de: {:?}", expected),
+                Some(adjusted_line(pos, input)),
+            )
+        }
+        ExtraToken { token: (start, _, end) } => {
+            let pos = Position::new(start, end);
+            ParseError::new("Token extra", Some(adjusted_line(pos, input)))
+        }
+        UnrecognizedEof { location, expected } => {
+            let pos = Position::new(location, location);
+            ParseError::new(
+                format!("EOF inesperado, se esperaba: {:?}", expected),
+                Some(adjusted_line(pos, input)),
+            )
+        }
+        User { error } => {
+            ParseError::new(error, None)
+        }
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/lib.rs =====
+
+use lalrpop_util::lalrpop_mod;
+lalrpop_mod!(pub grammar);
+
+mod ast;
+pub use ast::*;
+
+pub mod tokens;
+pub use tokens::*;
+
+pub mod errors;
+pub use errors::{ParseError, parse_program};
+
+pub use grammar::ProgramParser;
+
+pub use ast::expressions::functioncall;
+pub use ast::expressions::functiondeclaration;
+
+===== ARCHIVO: ./parser/src/tokens/identifier.rs =====
+
+use std::fmt;
+use super::position::Position;
+use super::super::Visitable;
+use super::super::Visitor;
+#[derive(Debug)]
+#[derive(Clone)]
+pub struct Identifier {
+    pub name: String,
+    pub position: Position,
+}
+
+impl Identifier {
+    pub fn new(start: usize, end: usize, id: &str) -> Self {
+        Identifier {
+            position: Position::new(start, end),
+            name: id.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl Visitable for Identifier {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_identifier(&self);
+    }
+    
+}
+
+===== ARCHIVO: ./parser/src/tokens/literal.rs =====
+
+use std::fmt;
+use super::position::Position;
+use super::super::Visitable;
+use super::super::Visitor;
+
+#[derive(Debug,Clone)]
+pub enum Literal {
+    Number(i32, Position),
+    Str(String, Position),
+    Bool(bool, Position),
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::Number(n, _) => write!(f, "{}", n),
+            Literal::Str(s, _) => write!(f, "{}", s),
+            Literal::Bool(b, _) => write!(f, "{}", b),
+        }
+    }
+}
+
+impl Visitable for Literal {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_literal(&self);
+    }
+    
+}
+
+===== ARCHIVO: ./parser/src/tokens/mod.rs =====
+
+
+pub mod identifier;
+pub mod keywords;
+pub mod literal;
+pub mod operator;
+pub mod position;
+
+pub use identifier::Identifier;
+pub use keywords::Keyword;
+pub use literal::Literal;
+pub use operator::SpecialOp;
+pub use operator::UnaryOp;
+pub use operator::BinOp;
+pub use operator::GroupingOperator;
+pub use position::Position;
+
+===== ARCHIVO: ./parser/src/tokens/operator.rs =====
+
+use std::fmt;
+use super::position::Position;
+#[derive(Debug,Clone)]
+pub enum BinOp {
+    // Binary operators
+    Mul(Position),
+    Div(Position),
+    Mod(Position),
+    Pow(Position),
+    Plus(Position),
+    Minus(Position),
+
+    // Comparison operators
+    EqualEqual(Position),
+    NotEqual(Position),      // !=
+    Less(Position),
+    LessEqual(Position),
+    Greater(Position),
+    GreaterEqual(Position),
+
+    // Logical operators
+    AndAnd(Position),        // &&
+    OrOr(Position),          // ||
+    Equal(Position),         // =
+    Assign(Position),        // :=
+    ConcatString(Position),  // @
+}
+
+
+impl fmt::Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            BinOp::Mul(_) => "*",
+            BinOp::Div(_) => "/",
+            BinOp::Plus(_) => "+",
+            BinOp::Minus(_) => "-",
+            BinOp::Mod(_) => "%",
+            BinOp::Pow(_) => "^",
+            BinOp::EqualEqual(_) => "==",
+            BinOp::NotEqual(_) => "!=",
+            BinOp::Less(_) => "<",
+            BinOp::LessEqual(_) => "<=",
+            BinOp::Greater(_) => ">",
+            BinOp::GreaterEqual(_) => ">=",
+            BinOp::AndAnd(_) => "&&",
+            BinOp::OrOr(_) => "||",
+            BinOp::Equal(_) => "=",
+            BinOp::Assign(_) => ":=",
+            BinOp::ConcatString(_) => "@",
+        };
+        write!(f, "{}", s)
+    }
+}
+#[derive(Debug,Clone)]
+pub enum UnaryOp {
+    Plus(Position),
+    Minus(Position),
+    Not(Position),
+}
+
+
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            UnaryOp::Plus(_) => "+",
+            UnaryOp::Minus(_) => "-",
+            UnaryOp::Not(_) => "!",
+        };
+        write!(f, "{}", s)
+    }
+}
+#[derive(Debug)]
+pub enum SpecialOp {
+    Semicolon(Position),
+    Comma(Position),
+    Colon(Position),
+    Dot(Position),
+    Arrow(Position),
+}
+
+impl fmt::Display for SpecialOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            SpecialOp::Semicolon(_) => ";",
+            SpecialOp::Comma(_) => ",",
+            SpecialOp::Colon(_) => ":",
+            SpecialOp::Dot(_) => ".",
+            SpecialOp::Arrow(_) => "=>",
+        };
+        write!(f, "{}", s)
+    }
+}
+#[derive(Debug,Clone)]
+pub enum GroupingOperator {
+    OpenParen(Position),
+    CloseParen(Position),
+    OpenBrace(Position),
+    CloseBrace(Position),
+}
+
+impl fmt::Display for GroupingOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            GroupingOperator::OpenParen(_) => "(",
+            GroupingOperator::CloseParen(_) => ")",
+            GroupingOperator::OpenBrace(_) => "{",
+            GroupingOperator::CloseBrace(_) => "}",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+===== ARCHIVO: ./parser/src/tokens/position.rs =====
+
+#[derive(Copy, Clone)]
+#[derive(Debug)]
+pub struct Position {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Position {
+    pub fn new(start: usize, end: usize) -> Self {
+        Position { start, end }
+    }
+
+    // Nuevo método para obtener la línea de inicio contando saltos de línea en el input
+    pub fn start_line(&self, input: &str) -> usize {
+        input[..self.start].chars().filter(|&c| c == '\n').count() + 1
+    }
+}
+
+
+===== ARCHIVO: ./parser/src/tokens/keywords.rs =====
+
+use std::fmt::Display;
+use super::position::Position;
+
+#[derive(Debug,Clone, Copy)]
+pub enum Keyword {
+    Let(Position),
+    In(Position),
+    If(Position),
+    Else(Position),
+    Elif(Position),
+    Print(Position),
+    While(Position),
+    For(Position),
+    Function(Position),
+    Type(Position), 
+    New(Position),  
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+       let s = match self {
+            Keyword::Let(_) => "let",
+            Keyword::If(_) => "if",
+            Keyword::Else(_) => "else",
+            Keyword::While(_) => "while",
+            Keyword::Print(_) => "print",
+            Keyword::In(_) => "in",
+            Keyword::Elif(_) => "elif",
+            Keyword::For(_) => "for",
+            Keyword::Function(_) => "function",
+            Keyword::Type(_) => "type",
+            Keyword::New(_) => "new",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+===== ARCHIVO: ./parser/src/grammar.lalrpop =====
+
+use std::str::FromStr;
+use crate::ast;
+use crate::tokens;
+use crate::Expression;
+use crate::ast::expressions::functiondeclaration;
+use crate::ast::expressions::functioncall;
+use crate::ast::expressions::declarationtypes;
+use crate::ast::expressions::instantiatingtypes;
+use crate::ast::expressions::accesstypesprop;
+use crate::ast::expressions::letin;
+
+grammar;
+
+pub Program: ast::Program = {
+    <list:ExpressionList> => ast::Program::new(list),
+};
+
+FunctionDefs: Vec<ast::Expression> = {
+    <def:FunctionDef> <rest:FunctionDefs> => {
+        let mut v = vec![def];
+        v.extend(rest);
+        v
+    },
+    <def:FunctionDef> => vec![def],
+};
+
+FunctionDef: ast::Expression = {
+    <fkw:FunctionKw> <name:Identifier>":"<rt:Type><params:FunctionParams> "=>" <body:Expression> ";" =>
+        ast::Expression::FunctionDef(
+            functiondeclaration::FunctionDef::new_expr(name, params, rt, Box::new(body))
+        ),
+    <fkw:FunctionKw> <name:Identifier>":"<rt:Type> <params:FunctionParams> <body:Block> =>
+        ast::Expression::FunctionDef(
+            functiondeclaration::FunctionDef::new_expr(name, params, rt, Box::new(body))
+        ),
+};
+
+
+
+FunctionParams: Vec<functiondeclaration::FunctionParams> = {
+    "(" <list:FunctionParamList> ")" => {println!("Reconocido paréntesis de apertura y cierre en parámetros");
+    list},
+    "(" ")" => vec![],
+};
+
+FunctionParamList: Vec<functiondeclaration::FunctionParams> = {
+    <p:FunctionParam> "," <rest:FunctionParamList> => {
+        let mut v = vec![p];
+        v.extend(rest);
+        v
+    },
+    <p:FunctionParam> => vec![p],
+};
+
+FunctionParam: functiondeclaration::FunctionParams = {
+    <id:Identifier> ":" <t:Type> => functiondeclaration::FunctionParams::new(id, t),
+    <id:Identifier> => functiondeclaration::FunctionParams::new(id, ast::Type::Unknown),
+};
+
+Type: ast::Type = {
+    "string" => ast::Type::String,
+    "number" => ast::Type::Number,
+    "bool"   => ast::Type::Boolean,
+    <id:Identifier> => ast::Type::Custom(id.name.clone()),
+};
+
+pub Block: ast::Expression = {
+    <o:OpenBrace> <e:ExpressionList> <c:CloseBrace> => {
+        ast::Expression::new_block(ast::Block::new(o,e,c))
+    },
+};
+
+pub ExpressionList: ast::ExpressionList = {
+    <e:Expression> <rest:ExpressionList> => {
+        let mut v = vec![e];
+        v.extend(rest.expressions);
+        ast::ExpressionList::new(v)
+    },
+    <e:Expression> => ast::ExpressionList::new(vec![e]),
+    // O vacío si lo deseas:
+    // => ast::ExpressionList::new(vec![]),
+};
+
+pub Expression: ast::Expression = {
+    <e:SemiColonExpression> ";" => e,
+    <e:NoSemiColonExpression> => e,
+};
+
+SemiColonExpression: ast::Expression = {
+    LetExpression,
+    PrintExpression,
+    DestructiveAssign,
+   // <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+    FunctionDef,
+    TypeDeclaration,
+    // Agrega aquí otras que requieran ';'
+};
+
+NoSemiColonExpression: ast::Expression = {
+    IfElseExpression,
+    WhileExpression,
+    ForExpression,
+    BooleanExpr,
+    Block,
+    // TypeInstantiation,
+    // TypeMethodAccess,
+    // Agrega aquí otras que no requieran ';'
+};
+ForExpression: ast::Expression = {
+    <tk:For> "(" <var:Identifier> <in_kw:In> <iter:Expression> ")" <body:Expression> =>
+        ast::Expression::new_for(
+            ast::For::new(
+                tk,
+                ast::Expression::new_atom(ast::Atom::Variable(var)), // convierte el identificador a expresión
+                in_kw,
+                iter,
+                body
+            )
+        ),
+};
+RangeExpression: ast::Expression = {
+    "range" "(" <start:Expression> "," <end:Expression> ")" =>
+        ast::Expression::new_range(start, end),
+};
+WhileExpression: ast::Expression = {
+    <tk:While> "(" <cond:Expression> ")" <body:Expression> =>
+        ast::Expression::new_while(ast::While::new(tk,cond,body)),
+};
+
+PrintExpression: ast::Expression = {
+    <s: @L> "print" "(" <e:Expression> ")" <e2: @R> => 
+        ast::Expression::new_print(e, tokens::Position::new(s, e2)),
+};
+
+pub Addition: ast::Expression = {
+    <l:Addition> <op:PlusMinusBinary> <r:Factor> => ast::Expression::new_binary_op(l, r, op),
+    Factor,
+};
+
+PlusMinusBinary: tokens::BinOp = {
+   <s: @L> "+" <e: @R> => tokens::BinOp::Plus(tokens::Position::new(s, e)),
+   <s: @L> "-" <e: @R> => tokens::BinOp::Minus(tokens::Position::new(s, e)),
+};
+
+Factor: ast::Expression = {
+    <l:Factor> <op:FactorOp> <r:PrimaryExpr> => ast::Expression::new_binary_op(l, r, op),
+    RangeExpression,
+    PrimaryExpr
+};
+PrimaryExpr: ast::Expression = {
+    <pe:PrimaryExpr> "." <sigil:MethodSigil> <m:Identifier> <args:CallArgs> => 
+        ast::Expression::TypeMethodAccess(
+            Box::new(accesstypesprop::AccessTypeProp::new_expr(pe, m, args))
+        ),
+   <pe:PrimaryExpr> "." <m:Identifier> => 
+    ast::Expression::new_type_property_access(
+        accesstypesprop::AccessTypeProp::new_property_expr(pe, m)
+    ),
+    <tk:NewKw> <name:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeInstantiation(
+            Box::new(instantiatingtypes::InstantingTypes::new_expr(name, args))
+        ),
+    <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+    <a:Atom> => ast::Expression::new_atom(a),
+};
+
+MemberSuffix: (tokens::Identifier, Option<Vec<ast::Expression>>) = {
+    <m:Identifier> <args:CallArgs> => (m, Some(args)),
+    <m:Identifier> => (m, None),
+};
+FactorOp: tokens::BinOp = {
+   <s: @L> "*" <e: @R> => tokens::BinOp::Mul(tokens::Position::new(s, e)),
+   <s: @L> "/" <e: @R> => tokens::BinOp::Div(tokens::Position::new(s, e)),
+   <s: @L> "%" <e: @R> => tokens::BinOp::Mod(tokens::Position::new(s, e)),
+};
+
+Term: ast::Expression = {
+    <fc:FunctionCall> => ast::Expression::FunctionCall(fc),
+    <a: Atom> => ast::Expression::new_atom(a),
+};
+
+FunctionCall: functioncall::FunctionCall = {
+    <at:AtSign> <name:Identifier> <args:CallArgs> =>
+        functioncall::FunctionCall::new(name, args),
+};
+
+AtSign: () = {
+    "@" => (),
+};
+
+CallArgs: Vec<ast::Expression> = {
+    "(" <list:CallArgList> ")" => list,
+    "(" ")" => vec![],
+};
+
+CallArgList: Vec<ast::Expression> = {
+    <e:Expression> "," <rest:CallArgList> => {
+        let mut v = vec![e];
+        v.extend(rest);
+        v
+    },
+    <e:Expression> => vec![e],
+};
+
+pub Atom: ast::Atom = {
+    <n:NumLiteral> => ast::Atom::NumberLiteral(n),
+    <b:BoolLiteral> => ast::Atom::BooleanLiteral(b),
+    <s:StrLiteral> => ast::Atom::StringLiteral(s),
+    <v:Variable> => v,
+    <g:GroupedExpression> => g,
+};
+
+TerminatedExpression: ast::Expression = {
+    <e:Expression> ";" => e,
+};
+
+IfElseExpression: ast::Expression = {
+    <if_kw:If> "(" <cond:Expression> ")" <then_branch:Expression>
+    <elifs:ElifBranchesOpt> <else_branch:ElseBranch> =>
+        ast::Expression::new_ifelse(ast::ifelse::IfElse::new(
+            if_kw,
+            cond,
+            then_branch,
+            elifs,
+            Some(else_branch.0),
+            Some(else_branch.1)
+        )),
+};
+
+ElifBranchesOpt: Vec<(tokens::Keyword, ast::Expression, ast::Expression)> = {
+    <e:ElifBranches> => e,
+    => vec![],
+};
+
+ElifBranches: Vec<(tokens::Keyword, ast::Expression, ast::Expression)> = {
+    <head:ElifBranch> <tail:ElifBranches> => {
+        let mut v = vec![head];
+        v.extend(tail);
+        v
+    },
+    <head:ElifBranch> => vec![head],
+};
+
+ElifBranch: (tokens::Keyword, ast::Expression, ast::Expression) = {
+    <elif_kw:Elif> "(" <cond:Expression> ")" <body:Expression> =>
+        (elif_kw, cond, body),
+};
+
+ElseBranch: (tokens::Keyword, ast::Expression) = {
+    <else_kw:Else> <body:Expression> => (else_kw, body),
+};
+
+LetExpression: ast::Expression = {
+    <k: Let> <a:AssignmentList> <i:In> <e:Expression> =>
+        ast::Expression::new_letin(
+            ast::LetIn::new(k, a, i, e)
+        ),
+};
+
+Assignment: ast::Assignment = {
+    <id:Variable> <o:EqualOperator> <e:Expression> =>
+        ast::Assignment::new(id, o, e),
+};
+
+EqualOperator: tokens::BinOp = {
+    <s: @L> "=" <e: @R> => tokens::BinOp::Equal(tokens::Position::new(s, e)),
+};
+
+AssignmentList: Vec<ast::Assignment> = {
+    <a:Assignment> "," <rest:AssignmentList> => {
+        let mut assignments = vec![a];
+        assignments.extend(rest);
+        assignments
+    },
+    <a:Assignment> => vec![a],
+};
+
+GroupedExpression: ast::Atom = {
+     <op:OpenParen> <e: Expression> <cp:CloseParen> => ast::Atom::new_grouped_expression(ast::Group::new(op,e,cp)),
+};
+
+OpenBrace: tokens::GroupingOperator = {
+    <s: @L> "{" <e: @R> => tokens::GroupingOperator::OpenBrace(tokens::Position::new(s, e)),
+};
+
+CloseBrace: tokens::GroupingOperator = {
+    <s: @L> "}" <e: @R> => tokens::GroupingOperator::CloseBrace(tokens::Position::new(s, e)),
+};
+
+OpenParen: tokens::GroupingOperator = {
+    <s: @L> "(" <e: @R> => tokens::GroupingOperator::OpenParen(tokens::Position::new(s, e)),
+};
+
+CloseParen: tokens::GroupingOperator = {
+    <s: @L> ")" <e: @R> => tokens::GroupingOperator::CloseParen(tokens::Position::new(s, e)),
+};
+
+Let: tokens::Keyword = {
+    <s: @L> "let" <e: @R> => tokens::Keyword::Let(tokens::Position::new(s, e)),
+};
+
+While: tokens::Keyword = {
+    <s:@L> "while" <e:@R> => tokens::Keyword::While(tokens::Position::new(s,e)),
+}
+
+In: tokens::Keyword = {
+    <s: @L> "in" <e: @R> => tokens::Keyword::In(tokens::Position::new(s, e)),
+};
+
+NumLiteral: tokens::Literal = {
+   <s: @L> <v: r"[0-9]+"> <e: @R> => tokens::Literal::Number(
+        i32::from_str(v).unwrap(),
+        tokens::Position::new(s, e)
+    ),
+};
+
+BoolLiteral: tokens::Literal = {
+   <s: @L> "true" <e: @R> => tokens::Literal::Bool(true, tokens::Position::new(s, e)),
+   <s: @L> "false" <e: @R> => tokens::Literal::Bool(false, tokens::Position::new(s, e)),
+};
+
+StrLiteral: tokens::Literal = {
+   <s: @L> <v: r#""([^"\\]|\\.)*""#> <e: @R> => tokens::Literal::Str(
+        v[1..v.len()-1].to_string(),
+        tokens::Position::new(s, e)
+    ),
+};
+
+Variable: ast::Atom = {
+    <id:Identifier> => ast::Atom::Variable(id),
+    <s: @L> "self" <e: @R> => ast::Atom::Variable(
+        tokens::Identifier::new(s, e, "self")
+    ),
+};
+FunctionKw: tokens::Keyword = {
+    <s: @L> "function" <e: @R> => tokens::Keyword::Function(tokens::Position::new(s, e)),
+};
+Identifier: tokens::Identifier = {
+   <s: @L> <n: r"[a-zA-Z_][a-zA-Z0-9_]*"> <e: @R> =>
+        tokens::Identifier::new(s, e, n),
+};
+
+If: tokens::Keyword = {
+    <s: @L> "if" <e: @R> => tokens::Keyword::If(tokens::Position::new(s, e)),
+};
+
+Elif: tokens::Keyword = {
+    <s: @L> "elif" <e: @R> => tokens::Keyword::Elif(tokens::Position::new(s, e)),
+};
+
+Else: tokens::Keyword = {
+    <s: @L> "else" <e: @R> => tokens::Keyword::Else(tokens::Position::new(s, e)),
+};
+For: tokens::Keyword = {
+    <s: @L> "for" <e: @R> => tokens::Keyword::For(tokens::Position::new(s, e))};
+
+
+BooleanExpr: ast::Expression = {
+    <l:BooleanExpr> <op:LogicalOp> <r:ComparisonExpr> => ast::Expression::new_binary_op(l, r, op),
+    ComparisonExpr,
+};
+
+ComparisonExpr: ast::Expression = {
+
+    <l:Addition> <op:ComparisonOp> <r:Addition> => ast::Expression::new_binary_op(l, r, op),
+    Addition,
+
+};
+
+// UnaryExpr: ast::Expression = {
+//     <op:UnaryOp> <e:UnaryExpr> => ast::Expression::new_unary_op(op, e),
+//     Addition,
+// };
+
+ComparisonOp: tokens::BinOp = {
+    <s: @L> "==" <e: @R> => tokens::BinOp::EqualEqual(tokens::Position::new(s, e)),
+    <s: @L> "!=" <e: @R> => tokens::BinOp::NotEqual(tokens::Position::new(s, e)),
+    <s: @L> "<" <e: @R>  => tokens::BinOp::Less(tokens::Position::new(s, e)),
+    <s: @L> "<=" <e: @R> => tokens::BinOp::LessEqual(tokens::Position::new(s, e)),
+    <s: @L> ">" <e: @R>  => tokens::BinOp::Greater(tokens::Position::new(s, e)),
+    <s: @L> ">=" <e: @R> => tokens::BinOp::GreaterEqual(tokens::Position::new(s, e)),
+};
+
+LogicalOp: tokens::BinOp = {
+    <s: @L> "&" <e: @R> => tokens::BinOp::AndAnd(tokens::Position::new(s, e)),
+    <s: @L> "|" <e: @R> => tokens::BinOp::OrOr(tokens::Position::new(s, e)),
+};
+
+UnaryOp: tokens::UnaryOp = {
+    <s: @L> "!" <e: @R> => tokens::UnaryOp::Not(tokens::Position::new(s, e)),
+    <s: @L> "-" <e: @R> => tokens::UnaryOp::Minus(tokens::Position::new(s, e)),
+}
+
+
+AssignDestructiveOperator: tokens::BinOp = {
+    <s: @L> ":=" <e: @R> => tokens::BinOp::Assign(tokens::Position::new(s, e)),
+};
+
+DestructiveAssign: ast::Expression = {
+    <lhs:PrimaryExpr> <op:AssignDestructiveOperator> <rhs:Expression> => ast::Expression::new_binary_op(
+        lhs,
+        rhs,
+        op
+    ),
+};
+
+TypeDeclaration: ast::Expression = {
+    <tk:TypeKw> <name:Identifier> <params:TypeParamsOpt> <body:TypeBody> =>
+        ast::Expression::TypeDeclaration(
+            Box::new(declarationtypes::Declarationtypes::new_expr(name, body.0, body.1, params))
+        ),
+};
+
+TypeKw: tokens::Keyword = {
+    <s: @L> "type" <e: @R> => tokens::Keyword::Type(tokens::Position::new(s, e)),
+};
+
+TypeParamsOpt: Vec<functiondeclaration::FunctionParams> = {
+    "(" <list:TypeParamList> ")" => list,
+    => vec![],
+};
+
+TypeParamList: Vec<functiondeclaration::FunctionParams> = {
+    <p:TypeParam> "," <rest:TypeParamList> => {
+        let mut v = vec![p];
+        v.extend(rest);
+        v
+    },
+    <p:TypeParam> => vec![p],
+};
+
+TypeParam: functiondeclaration::FunctionParams = {
+    <id:Identifier> ":" <t:Type> => functiondeclaration::FunctionParams::new(id, t),
+};
+
+TypeBody: (Vec<letin::Assignment>, Vec<functiondeclaration::FunctionDef>) = {
+    <o:OpenBrace> <list:TypeBodyList> <c:CloseBrace> => list,
+};
+
+TypeBodyList: (Vec<letin::Assignment>, Vec<functiondeclaration::FunctionDef>) = {
+    <f:TypeMethod> <rest:TypeBodyList> => {
+        let (attrs, mut funcs) = rest;
+        funcs.insert(0, f);
+        (attrs, funcs)
+    },
+    <a:TypeAttribute> <rest:TypeBodyList> => {
+        let (mut attrs, funcs) = rest;
+        attrs.insert(0, a);
+        (attrs, funcs)
+    },
+    => (vec![], vec![]),
+};
+
+TypeAttribute: letin::Assignment = {
+    <id:Identifier> "=" <e:Expression> ";" => 
+        letin::Assignment::new(
+            ast::Atom::Variable(id),
+            tokens::BinOp::Assign(tokens::Position::new(0, 0)),
+            e
+        ),
+};
+TypeMethod: functiondeclaration::FunctionDef = {
+    <name:Identifier> <params:FunctionParams> "=>" <body:TypeMethodBody> ";" => {
+        functiondeclaration::FunctionDef::new_expr(
+            name,
+            params,
+            ast::Type::Number, // O infiere el tipo si puedes
+            Box::new(body)
+        )
+    },
+    <name:Identifier> <params:FunctionParams> <body:Block> => {
+        functiondeclaration::FunctionDef::new_expr(
+            name,
+            params,
+            ast::Type::Number, // O infiere el tipo si puedes
+            Box::new(body)
+        )
+    },
+    <fkw:FunctionKw> <name:Identifier> ":" <rt:Type> <params:FunctionParams> "=>" <body:Expression> ";" => {
+        println!("Reconocido método largo: {:?}", name);
+        functiondeclaration::FunctionDef::new_expr(
+            name,
+            params,
+            rt,
+            Box::new(body)
+        )
+    }
+};
+TypeInstantiation: ast::Expression = {
+    <tk:NewKw> <name:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeInstantiation(
+            Box::new(instantiatingtypes::InstantingTypes::new_expr(name, args))
+        ),
+};
+
+NewKw: tokens::Keyword = {
+    <s: @L> "new" <e: @R> => tokens::Keyword::New(tokens::Position::new(s, e)),
+};
+TypeMethodAccess: ast::Expression = {
+    <instance:Expression> "." <method:Identifier> <args:CallArgs> =>
+        ast::Expression::TypeMethodAccess(
+            Box::new(accesstypesprop::AccessTypeProp::new_expr(instance, method, args))
+        ),
+};
+MethodSigil: () = {
+    "$" => (),
+};
+TypeMethodBody: ast::Expression = {
+    <e:SemiColonExpression> => e,
+    <e:NoSemiColonExpression> => e,
+};
+
+===== ARCHIVO: ./main.rs =====
+
+// use parser::grammar::ProgramParser;
+use parser::visitor::ast_optimizer;
+use parser::visitor::ast_printer_visitor::AstPrinterVisitor;
+use parser::visitor::semantic_type_checker::SemanticTypeChecker;
+use parser::visitor::LLVMGenerator;
+use parser::visitor::Visitable;
+use std::env;
+use std::fs;
+use std::fs::File;
+use std::io::Write;
+
+fn _strip_comments(source: &str) -> Result<String, String> {
+    let mut result = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut in_multiline_comment = false;
+    let mut multiline_comment_depth = 0;
+
+    while let Some(&c) = chars.peek() {
+        if in_multiline_comment {
+            // Inside multi-line comment, look for end or nested start
+            if c == '*' {
+                chars.next();
+                if let Some(&next_c) = chars.peek() {
+                    if next_c == '/' {
+                        chars.next();
+                        multiline_comment_depth -= 1;
+                        if multiline_comment_depth == 0 {
+                            in_multiline_comment = false;
+                        }
+                        continue;
+                    }
+                }
+            } else if c == '/' {
+                chars.next();
+                if let Some(&next_c) = chars.peek() {
+                    if next_c == '*' {
+                        // Nested multi-line comment detected - error
+                        return Err("Nested multi-line comments are not allowed".to_string());
+                    }
+                }
+            } else {
+                chars.next();
+            }
+        } else {
+            if c == '/' {
+                chars.next();
+                if let Some(&next_c) = chars.peek() {
+                    if next_c == '/' {
+                        // Single-line comment: skip until end of line
+                        chars.next();
+                        while let Some(&line_c) = chars.peek() {
+                            chars.next();
+                            if line_c == '\n' {
+                                result.push('\n');
+                                break;
+                            }
+                        }
+                        continue;
+                    } else if next_c == '*' {
+                        // Start multi-line comment
+                        chars.next();
+                        in_multiline_comment = true;
+                        multiline_comment_depth = 1;
+                        continue;
+                    } else {
+                        // Just a single slash
+                        result.push(c);
+                        continue;
+                    }
+                } else {
+                    // Slash at end of input
+                    result.push(c);
+                    break;
+                }
+            } else {
+                // Normal character, add to result
+                result.push(c);
+                chars.next();
+            }
+        }
+    }
+
+    if in_multiline_comment {
+        return Err("Unterminated multi-line comment".to_string());
+    }
+
+    Ok(result)
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        eprintln!("Uso: {} <script.hulk>", args[0]);
+        std::process::exit(1);
+    }
+
+    let filename = &args[1];
+
+    let source = fs::read_to_string(filename).expect("No se pudo leer el archivo de entrada");
+
+    let preprocessed = ast_optimizer::preprocess_functions(&source);
+    println!(
+        "--- Código preprocesado ---\n{}\n---------------------------",
+        preprocessed
+    );
+    match parser::parse_program(&preprocessed) {
+        Ok(program) => {
+            let mut checker = SemanticTypeChecker::new(preprocessed.clone());
+            program.accept(&mut checker);
+
+            if !checker.errors.is_empty() {
+                for err in checker.errors {
+                    eprintln!("Type error: {}", err);
+                }
+                std::process::exit(1);
+            }
+
+            let mut printer = AstPrinterVisitor::new();
+            program.accept(&mut printer);
+
+            let mut llvm_gen = LLVMGenerator::new(checker.symbol_table.clone());
+            program.accept(&mut llvm_gen);
+
+            // Escribir LLVM IR en archivo
+            let mut file = File::create("hulk/script.ll").unwrap();
+            let header = LLVMGenerator::llvm_header();
+            let (before_main, after_main) = header.split_at(
+                header
+                    .iter()
+                    .position(|l| l.contains("define i32 @main()"))
+                    .unwrap(),
+            );
+            for line in before_main {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in llvm_gen.string_globals {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in llvm_gen.functions {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in after_main {
+                writeln!(file, "{}", line).unwrap();
+            }
+            for line in llvm_gen.code {
+                writeln!(file, "  {}", line).unwrap();
+            }
+            for line in LLVMGenerator::llvm_footer() {
+                writeln!(file, "{}", line).unwrap();
+            }
+        }
+        Err(err) => {
+            if let Some(line) = err.line {
+                println!("Error en la línea {}: {}", line, err.message);
+            } else {
+                println!("Error: {}", err.message);
+            }
+        }
+    }
+}

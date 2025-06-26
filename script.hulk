@@ -1,1 +1,2 @@
-let a = 5 in if (a) print (3); else print(1);;
+let a = 5 in if (true) print (3); else print(1);;
+if (True) print(1); else print(2);

@@ -1,0 +1,23 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Introducción}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Contexto del Sistema}{3}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Objetivos Principales}{3}{subsection.1.2}%
+\contentsline {section}{\numberline {2}Análisis Técnico}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Estructura del Proyecto}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Análisis por Componente}{4}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}main.rs - Controlador Principal}{4}{subsubsection.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.2.2}Módulo de Tokens}{6}{subsubsection.2.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.3}grammar.lalrpop - Especificación Gramatical}{7}{subsubsection.2.2.3}%
+\contentsline {subsubsection}{\numberline {2.2.4}Árbol de Sintaxis Abstracta (AST)}{9}{subsubsection.2.2.4}%
+\contentsline {subsubsection}{\numberline {2.2.5}Sistema de Verificación Semántica}{10}{subsubsection.2.2.5}%
+\contentsline {subsubsection}{\numberline {2.2.6}Generador de Código LLVM}{12}{subsubsection.2.2.6}%
+\contentsline {subsubsection}{\numberline {2.2.7}Optimizador y Preprocesador}{14}{subsubsection.2.2.7}%
+\contentsline {subsubsection}{\numberline {2.2.8}Sistema de Manejo de Errores}{16}{subsubsection.2.2.8}%
+\contentsline {section}{\numberline {3}Evaluación de Diseño y Arquitectura}{17}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Análisis de Patrones de Diseño}{17}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Análisis de Complejidad Algorítmica}{18}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Evaluación de Extensibilidad}{18}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Conclusiones}{18}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Cumplimiento de Objetivos}{18}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Calidad del Código Implementado}{19}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Decisiones Técnicas Destacables}{19}{subsection.4.3}%

@@ -1,0 +1,958 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Configuración de geometría
+\geometry{left=3cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\setlength{\headheight}{15.05pt}
+
+% Configuración de listings
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{rustcode}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    morekeywords={fn, let, mut, impl, struct, enum, pub, use, mod, self, super, crate, match, if, else, while, for, loop, break, continue, return, true, false, String, Vec, HashMap, Option, Result, Some, None, Ok, Err, Box, Rc, Arc, RefCell, Mutex, RwLock}
+}
+
+\lstdefinestyle{lalrpop}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{red},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    morekeywords={grammar, pub, use, match, if, else, while, for, let, in, function, type, new}
+}
+
+\lstdefinestyle{llvm}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{red},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    morekeywords={define, declare, call, ret, br, label, load, store, alloca, getelementptr, icmp, add, sub, mul, sdiv, srem, and, or, xor, phi, select, i32, i1, i8, void}
+}
+
+% Configuración de headers y footers
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{Compilador HULK - Análisis Técnico}
+
+% Configuración de tikz
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
+
+\title{
+    \vspace{2cm}
+    {\Huge\textbf{Compilador para el Lenguaje HULK}}\\
+    \vspace{0.5cm}
+    {\Large Análisis Técnico e Implementación}\\
+    \vspace{0.5cm}
+    {\large Proyecto de Compilación}\\
+    \vspace{1cm}
+}
+
+\author{
+    Dayan Cabrera Corvo - C311\\
+    Eveliz Espinaco Milian - C311\\
+    Michell Viu Ramirez - C311\\
+    \\
+    Universidad de La Habana\\
+    Facultad de Matemática y Computación\\
+    Carrera de Ciencia de la Computación
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+\tableofcontents
+\newpage
+
+\section{Introducción}
+
+El presente documento constituye un análisis técnico exhaustivo del compilador desarrollado para el lenguaje de programación HULK. Se trata de un sistema completo de compilación que abarca desde el análisis lexicográfico hasta la generación de código intermedio LLVM IR, implementado íntegramente en el lenguaje de programación Rust.
+
+\subsection{Contexto del Sistema}
+
+El compilador HULK se diseñó como una implementación funcional completa que soporta las características principales de un lenguaje de programación funcional moderno. Se estructuró siguiendo principios de ingeniería de software establecidos, empleando patrones de diseño reconocidos y técnicas avanzadas de compilación.
+
+La arquitectura del sistema se fundamenta en una separación clara de responsabilidades, donde cada componente cumple una función específica dentro del pipeline de compilación. Se implementó utilizando el generador de parsers LALRPOP para el análisis sintáctico, el patrón Visitor para el recorrido del árbol de sintaxis abstracta (AST), y LLVM como backend de generación de código.
+
+\subsection{Objetivos Principales}
+
+Los objetivos técnicos que guiaron el desarrollo del compilador fueron:
+
+\begin{itemize}
+    \item Implementar un analizador sintáctico robusto capaz de procesar la gramática completa del lenguaje HULK
+    \item Desarrollar un sistema de verificación semántica y de tipos estático
+    \item Generar código LLVM IR optimizado y funcionalmente correcto
+    \item Mantener un diseño modular y extensible que facilite futuras modificaciones
+    \item Proporcionar diagnósticos de error precisos con información de localización
+\end{itemize}
+
+\section{Análisis Técnico}
+
+\subsection{Estructura del Proyecto}
+
+La arquitectura del compilador se organizó siguiendo una estructura modular jerárquica que separa claramente las diferentes fases de compilación. Se empleó un enfoque de capas donde cada nivel abstrae la complejidad del nivel inferior.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    box/.style={rectangle, draw, fill=blue!20, text width=3cm, text centered, minimum height=1cm},
+    arrow/.style={->, thick}
+]
+
+% Capa superior - Main
+\node[box] (main) {main.rs\\(Controlador Principal)};
+
+% Capa de parsing
+\node[box, below of=main] (grammar) {grammar.lalrpop\\(Gramática LALR)};
+\node[box, left of=grammar, xshift=-1.5cm] (tokens) {Tokens\\(Análisis Léxico)};
+\node[box, right of=grammar, xshift=1.5cm] (errors) {errors.rs\\(Manejo de Errores)};
+
+% Capa AST
+\node[box, below of=grammar, yshift=-0.5cm] (ast) {AST\\(Árbol Sintáctico)};
+\node[box, left of=ast, xshift=-2cm] (atoms) {Atoms\\(Elementos Base)};
+\node[box, right of=ast, xshift=2cm] (expressions) {Expressions\\(Expresiones)};
+
+% Capa de análisis
+\node[box, below of=ast, yshift=-0.5cm] (semantic) {Análisis Semántico};
+\node[box, left of=semantic, xshift=-2cm] (types) {Sistema de Tipos};
+\node[box, right of=semantic, xshift=2cm] (symbols) {Tabla de Símbolos};
+
+% Capa de generación
+\node[box, below of=semantic, yshift=-0.5cm] (llvm) {Generador LLVM};
+\node[box, left of=llvm, xshift=-2cm] (optimizer) {Optimizador AST};
+\node[box, right of=llvm, xshift=2cm] (visitor) {Patrón Visitor};
+
+% Flechas
+\draw[arrow] (main) -- (grammar);
+\draw[arrow] (main) -- (tokens);
+\draw[arrow] (main) -- (errors);
+\draw[arrow] (grammar) -- (ast);
+\draw[arrow] (tokens) -- (ast);
+\draw[arrow] (ast) -- (atoms);
+\draw[arrow] (ast) -- (expressions);
+\draw[arrow] (ast) -- (semantic);
+\draw[arrow] (semantic) -- (types);
+\draw[arrow] (semantic) -- (symbols);
+\draw[arrow] (semantic) -- (llvm);
+\draw[arrow] (llvm) -- (optimizer);
+\draw[arrow] (llvm) -- (visitor);
+
+\end{tikzpicture}
+\caption{Arquitectura modular del compilador HULK}
+\label{fig:architecture}
+\end{figure}
+
+La estructura se diseñó con los siguientes principios arquitectónicos:
+
+\begin{itemize}
+    \item \textbf{Separación de responsabilidades}: Cada módulo tiene una función específica y bien definida
+    \item \textbf{Bajo acoplamiento}: Los módulos interactúan a través de interfaces claras
+    \item \textbf{Alta cohesión}: Las funcionalidades relacionadas se agrupan en el mismo módulo
+    \item \textbf{Extensibilidad}: La arquitectura permite agregar nuevas funcionalidades sin modificar componentes existentes
+\end{itemize}
+
+\subsection{Análisis por Componente}
+
+\subsubsection{main.rs - Controlador Principal}
+
+\textbf{Propósito}: Se implementó como el punto de entrada del compilador y orquestador del pipeline completo de compilación.
+
+\textbf{Implementación}: Se desarrolló utilizando un enfoque procedural que coordina secuencialmente las diferentes fases de compilación. La estructura del código refleja el flujo natural del proceso de compilación, desde la lectura del archivo fuente hasta la generación del código LLVM.
+
+\begin{lstlisting}[style=rustcode,caption=Función principal del compilador]
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    
+    if args.len() < 2 {
+        eprintln!("Uso: {} <script.hulk>", args[0]);
+        std::process::exit(1);
+    }
+
+    let filename = &args[1];
+    let source = fs::read_to_string(filename)
+        .expect("No se pudo leer el archivo de entrada");
+
+    let preprocessed = ast_optimizer::preprocess_functions(&source);
+    
+    match parser::parse_program(&preprocessed) {
+        Ok(program) => {
+            let mut checker = SemanticTypeChecker::new();
+            program.accept(&mut checker);
+            
+            if !checker.errors.is_empty() {
+                for err in checker.errors {
+                    eprintln!("Type error: {}", err);
+                }
+                std::process::exit(1);
+            }
+            
+            let mut llvm_gen = LLVMGenerator::new(checker.symbol_table.clone());
+            program.accept(&mut llvm_gen);
+            // Generacion del archivo LLVM IR...
+        }
+        Err(err) => {
+            println!("Error: {}", err.message);
+        }
+    }
+}
+\end{lstlisting}
+
+\textbf{Características Destacadas}:
+\begin{itemize}
+    \item Se empleó manejo de errores mediante \texttt{Result} types, siguiendo las convenciones idiomáticas de Rust
+    \item Se implementó un sistema de preprocesamiento que transforma el código fuente antes del análisis sintáctico
+    \item Se utilizó el patrón de pipeline donde cada fase consume la salida de la anterior
+    \item Se integro manejo de argumentos de linea de comandos con validacion apropiada
+\end{itemize}
+
+La función \texttt{\_strip\_comments} demuestra un procesamiento de texto sofisticado que maneja comentarios anidados y detecta errores de sintaxis en los comentarios:
+
+\begin{lstlisting}[style=rustcode,caption=Procesamiento avanzado de comentarios]
+fn _strip_comments(source: &str) -> Result<String, String> {
+    let mut result = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut in_multiline_comment = false;
+    let mut multiline_comment_depth = 0;
+
+    while let Some(&c) = chars.peek() {
+        if in_multiline_comment {
+            if c == '*' {
+                chars.next();
+                if let Some(&next_c) = chars.peek() {
+                    if next_c == '/' {
+                        chars.next();
+                        multiline_comment_depth -= 1;
+                        if multiline_comment_depth == 0 {
+                            in_multiline_comment = false;
+                        }
+                        continue;
+                    }
+                }
+            } else if c == '/' {
+                chars.next();
+                if let Some(&next_c) = chars.peek() {
+                    if next_c == '*' {
+                        return Err("Nested multi-line comments are not allowed".to_string());
+                    }
+                }
+            } else {
+                chars.next();
+            }
+        }
+        // ... logica adicional
+    }
+    
+    if in_multiline_comment {
+        return Err("Unterminated multi-line comment".to_string());
+    }
+    
+    Ok(result)
+}
+\end{lstlisting}
+
+\subsubsection{Módulo de Tokens}
+
+\textbf{Propósito}: Se diseñó para representar los elementos léxicos fundamentales del lenguaje HULK, proporcionando una abstracción robusta sobre los tokens reconocidos durante el análisis lexicográfico.
+
+\textbf{Implementación}: Se estructuró mediante un conjunto de enumeraciones y estructuras que encapsulan tanto el valor semántico como la información posicional de cada token. Esta aproximación facilita el diagnóstico preciso de errores y el mantenimiento de trazabilidad a lo largo del proceso de compilación.
+
+\begin{lstlisting}[style=rustcode,caption=Definición de tokens fundamentales]
+#[derive(Debug, Clone)]
+pub struct Position {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Position {
+    pub fn new(start: usize, end: usize) -> Self {
+        Position { start, end }
+    }
+
+    pub fn start_line(&self, input: &str) -> usize {
+        input[..self.start].chars().filter(|&c| c == '\n').count() + 1
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Literal {
+    Number(i32, Position),
+    Str(String, Position),
+    Bool(bool, Position),
+}
+
+#[derive(Debug, Clone)]
+pub enum BinOp {
+    Mul(Position), Div(Position), Mod(Position), Pow(Position),
+    Plus(Position), Minus(Position),
+    EqualEqual(Position), NotEqual(Position),
+    Less(Position), LessEqual(Position),
+    Greater(Position), GreaterEqual(Position),
+    AndAnd(Position), OrOr(Position),
+    Equal(Position), Assign(Position),
+    ConcatString(Position),
+}
+\end{lstlisting}
+
+\textbf{Decisiones de Diseño Significativas}:
+\begin{itemize}
+    \item Se implementó información posicional en todos los tokens para facilitar el reporte de errores contextuales
+    \item Se empleó el patrón de enumeración con datos asociados (\textit{tagged unions}) característico de Rust
+    \item Se diseno un sistema de calculo de lineas eficiente que cuenta caracteres de nueva linea
+    \item Se implementó el trait \texttt{Display} para cada tipo de token, permitiendo representación textual uniforme
+\end{itemize}
+
+El diseño del módulo \texttt{Identifier} ilustra la integración del patrón Visitor:
+
+\begin{lstlisting}[style=rustcode,caption=Integración del patrón Visitor en tokens]
+#[derive(Debug, Clone)]
+pub struct Identifier {
+    pub name: String,
+    pub position: Position,
+}
+
+impl Identifier {
+    pub fn new(start: usize, end: usize, id: &str) -> Self {
+        Identifier {
+            position: Position::new(start, end),
+            name: id.to_string(),
+        }
+    }
+}
+
+impl Visitable for Identifier {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_identifier(&self);
+    }
+}
+\end{lstlisting}
+
+\subsubsection{grammar.lalrpop - Especificación Gramatical}
+
+\textbf{Propósito}: Se implementó como la especificación formal de la gramática del lenguaje HULK utilizando la notación LALRPOP, definiendo las reglas de producción y la precedencia de operadores.
+
+\textbf{Implementación}: Se desarrolló empleando un generador de parsers LR(1) que garantiza un análisis sintáctico determinístico y eficiente. La gramática se estructuró de manera jerárquica, respetando las precedencias de operadores y evitando ambigüedades.
+
+\begin{lstlisting}[style=lalrpop,caption=Reglas gramaticales principales]
+grammar;
+
+pub Program: ast::Program = {
+    <list:ExpressionList> => ast::Program::new(list),
+};
+
+FunctionDef: ast::Expression = {
+    <fkw:FunctionKw> <name:Identifier>":"<rt:Type><params:FunctionParams> "=>" <body:Expression> ";" =>
+        ast::Expression::FunctionDef(
+            functiondeclaration::FunctionDef::new_expr(
+                name, params, rt, Box::new(body)
+            )
+        ),
+    <fkw:FunctionKw> <name:Identifier>":"<rt:Type> <params:FunctionParams> <body:Block> =>
+        ast::Expression::FunctionDef(
+            functiondeclaration::FunctionDef::new_expr(
+                name, params, rt, Box::new(body)
+            )
+        ),
+};
+
+pub Addition: ast::Expression = {
+    <l:Addition> <op:PlusMinusBinary> <r:Factor> => 
+        ast::Expression::new_binary_op(l, r, op),
+    Factor,
+};
+
+BooleanExpr: ast::Expression = {
+    <l:BooleanExpr> <op:LogicalOp> <r:ComparisonExpr> => 
+        ast::Expression::new_binary_op(l, r, op),
+    ComparisonExpr,
+};
+\end{lstlisting}
+
+\textbf{Características Gramaticales Avanzadas}:
+\begin{itemize}
+    \item Se empleó asociatividad por la izquierda para operadores aritméticos y lógicos
+    \item Se implementó precedencia explícita mediante la estructura jerárquica de las reglas
+    \item Se utilizó el mecanismo de captura de posiciones de LALRPOP (\texttt{@L} y \texttt{@R}) para el rastreo de ubicaciones
+    \item Se diseñó una gramática libre de conflictos shift/reduce mediante factorización apropiada
+\end{itemize}
+
+La regla para expresiones condicionales demuestra el manejo de estructuras de control complejas:
+
+\begin{lstlisting}[style=lalrpop,caption=Manejo de estructuras condicionales]
+IfElseExpression: ast::Expression = {
+    <if_kw:If> "(" <cond:Expression> ")" <then_branch:Expression>
+    <elifs:ElifBranchesOpt> <else_branch:ElseBranch> =>
+        ast::Expression::new_ifelse(ast::ifelse::IfElse::new(
+            if_kw, cond, then_branch, elifs,
+            Some(else_branch.0), Some(else_branch.1)
+        )),
+};
+
+ElifBranches: Vec<(tokens::Keyword, ast::Expression, ast::Expression)> = {
+    <head:ElifBranch> <tail:ElifBranches> => {
+        let mut v = vec![head];
+        v.extend(tail);
+        v
+    },
+    <head:ElifBranch> => vec![head],
+};
+\end{lstlisting}
+
+\subsubsection{Árbol de Sintaxis Abstracta (AST)}
+
+\textbf{Propósito}: Se diseñó como la representación intermedia del código fuente que preserva la estructura semántica del programa mientras abstrae detalles sintácticos irrelevantes.
+
+\textbf{Implementación}: Se estructuró mediante un conjunto de enumeraciones y estructuras recursivas que modelan fielmente la semántica del lenguaje HULK. Se empleó el patrón de diseño Composite para representar expresiones complejas.
+
+\begin{lstlisting}[style=rustcode,caption=Definición del AST principal]
+#[derive(Debug, Clone)]
+pub enum Expression {
+    BinaryOp(BinaryOp),
+    Atom(Box<Atom>),
+    IfElse(Box<ifelse::IfElse>),
+    LetIn(Box<letin::LetIn>),
+    For(Box<forr::For>),
+    Print(Box<Expression>, tokens::Position),
+    While(Box<whilee::While>),
+    Block(Box<block::Block>),
+    UnaryOp(UnaryOp),
+    Range(Box<Expression>, Box<Expression>),
+    FunctionCall(functioncall::FunctionCall),
+    FunctionDef(functiondeclaration::FunctionDef),
+    TypeDeclaration(Box<Declarationtypes>),
+    TypeInstantiation(Box<InstantingTypes>),
+    TypeMethodAccess(Box<AccessTypeProp>),
+    TypePropertyAccess(Box<AccessTypeProp>),
+}
+\end{lstlisting}
+
+\textbf{Patrones de Diseño Implementados}:
+\begin{itemize}
+    \item \textbf{Composite}: Las expresiones pueden contener otras expresiones recursivamente
+    \item \textbf{Visitor}: Cada nodo del AST implementa el trait \texttt{Visitable}
+    \item \textbf{Builder}: Los métodos constructores proporcionan una interfaz fluida para crear nodos
+    \item \textbf{Type-safe}: Se aprovecha el sistema de tipos de Rust para prevenir construcciones inválidas
+\end{itemize}
+
+La implementación del patrón Visitor en el AST demuestra polimorfismo avanzado:
+
+\begin{lstlisting}[style=rustcode,caption=Implementación del patrón Visitor]
+impl Visitable for Expression {
+    fn accept<V: Visitor>(&self, visitor: &mut V) {
+        match self {
+            Expression::BinaryOp(binop) => visitor.visit_binary_op(binop),
+            Expression::Atom(atom) => atom.accept(visitor),
+            Expression::IfElse(ifelse) => ifelse.accept(visitor),
+            Expression::Print(expr, _pos) => visitor.visit_print(expr),
+            Expression::While(whilee) => whilee.accept(visitor),
+            Expression::LetIn(letin) => letin.accept(visitor),
+            Expression::Block(block) => block.accept(visitor),
+            Expression::UnaryOp(unoperator) => unoperator.accept(visitor),
+            Expression::For(forr) => forr.accept(visitor),
+            Expression::Range(start, end) => {
+                start.accept(visitor);
+                end.accept(visitor);
+            }
+            Expression::FunctionCall(call) => call.accept(visitor),
+            Expression::FunctionDef(def) => def.accept(visitor),
+            Expression::TypeDeclaration(decl) => decl.accept(visitor),
+            Expression::TypeInstantiation(inst) => inst.accept(visitor),
+            Expression::TypeMethodAccess(acc) => acc.accept(visitor),
+            Expression::TypePropertyAccess(acc) => acc.accept(visitor),
+        }
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Sistema de Verificación Semántica}
+
+\textbf{Propósito}: Se implementó para realizar análisis estático del código, verificando la corrección semántica y la coherencia de tipos antes de la generación de código.
+
+\textbf{Implementación}: Se desarrolló mediante un visitor especializado que recorre el AST manteniendo una tabla de símbolos con información de scoping. Se empleó un enfoque de inferencia de tipos con verificación estricta.
+
+\begin{lstlisting}[style=rustcode,caption=Verificador semántico principal]
+#[derive(Debug, Clone)]
+pub struct SemanticTypeChecker {
+    pub symbol_table: SymbolTable,
+    pub errors: Vec<String>,
+    pub input: String,
+}
+
+impl SemanticTypeChecker {
+    pub fn new(input: String) -> Self {
+        SemanticTypeChecker {
+            symbol_table: SymbolTable::new(),
+            errors: Vec::new(),
+            input,
+        }
+    }
+
+    fn infer_expr_type(&mut self, expr: &Expression) -> Type {
+        match expr {
+            Expression::Atom(atom) => self.type_of_atom(atom),
+            Expression::FunctionCall(call) => {
+                if let Some(SymbolInfo::Function { return_type, .. }) =
+                    self.symbol_table.lookup(&call.funct_name.name)
+                {
+                    return_type.clone()
+                } else {
+                    self.errors.push(format!(
+                        "Linea {}: Funcion '{}' no declarada", 
+                        call.funct_name.position.start_line(&self.input), 
+                        call.funct_name.name
+                    ));
+                    Type::Unknown
+                }
+            }
+            Expression::BinaryOp(binop) => {
+                let left_ty = self.infer_expr_type(&binop.left);
+                let right_ty = self.infer_expr_type(&binop.right);
+                self.verify_binary_op_types(&binop.operator, &left_ty, &right_ty)
+            }
+            _ => Type::Unknown,
+        }
+    }
+}
+\end{lstlisting}
+
+\textbf{Algoritmos de Análisis Implementados}:
+\begin{itemize}
+    \item \textbf{Inferencia de tipos}: Se implementó un algoritmo que propaga información de tipos a través del AST
+    \item \textbf{Verificación de scoping}: Se mantiene una pila de contextos para validar el alcance de variables
+    \item \textbf{Análisis de flujo}: Se verifica que las funciones tengan rutas de retorno apropiadas
+    \item \textbf{Validación de llamadas}: Se comprueba la aridad y tipos de argumentos en llamadas a función
+\end{itemize}
+
+La verificación de operadores binarios ilustra la complejidad del análisis semántico:
+
+\begin{lstlisting}[style=rustcode,caption=Verificación de operadores binarios]
+fn visit_binary_op(&mut self, binop: &BinaryOp) {
+    binop.left.accept(self);
+    binop.right.accept(self);
+    let left_ty = self.infer_expr_type(&binop.left);
+    let right_ty = self.infer_expr_type(&binop.right);
+
+    match &binop.operator {
+        BinOp::Plus(pos) | BinOp::Minus(pos) | BinOp::Mul(pos) 
+        | BinOp::Div(pos) | BinOp::Mod(pos) => {
+            if left_ty != Type::Number || right_ty != Type::Number {
+                self.errors.push(format!(
+                    "Linea {}: Operacion aritmetica requiere numeros", 
+                    pos.start_line(&self.input)
+                ));
+            }
+        }
+        BinOp::EqualEqual(pos) | BinOp::NotEqual(pos) => {
+            if left_ty != right_ty {
+                self.errors.push(format!(
+                    "Linea {}: Comparacion entre tipos incompatibles", 
+                    pos.start_line(&self.input)
+                ));
+            }
+        }
+        BinOp::AndAnd(pos) | BinOp::OrOr(pos) => {
+            if left_ty != Type::Boolean || right_ty != Type::Boolean {
+                self.errors.push(format!(
+                    "Linea {}: Operador logico requiere booleanos", 
+                    pos.start_line(&self.input)
+                ));
+            }
+        }
+        _ => {}
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Generador de Código LLVM}
+
+\textbf{Propósito}: Se diseñó para transformar el AST verificado en código intermedio LLVM IR, proporcionando una representación de bajo nivel optimizable y portable.
+
+\textbf{Implementación}: Se desarrolló mediante un visitor especializado que mantiene estado de generación y produce instrucciones LLVM secuencialmente. Se emplearon técnicas avanzadas de manejo de temporales y gestión de memoria.
+
+\begin{lstlisting}[style=rustcode,caption=Generador LLVM principal]
+pub struct LLVMGenerator {
+    pub code: Vec<String>,
+    pub functions: Vec<String>,
+    pub temp_count: usize,
+    pub last_temp: String,
+    pub string_globals: Vec<String>,
+    pub env_stack: Vec<HashMap<String, String>>,
+    pub string_sizes: HashMap<String, usize>,
+    pub string_label_count: usize,
+    pub symbol_table: SymbolTable,
+}
+
+impl LLVMGenerator {
+    fn next_temp(&mut self) -> String {
+        let t = format!("%t{}", self.temp_count);
+        self.temp_count += 1;
+        t
+    }
+
+    pub fn llvm_header() -> Vec<String> {
+        vec![
+            "@.fmt_int = private unnamed_addr constant [4 x i8] c\"%d\\0A\\00\"".to_string(),
+            "@.fmt_str = private unnamed_addr constant [4 x i8] c\"%s\\0A\\00\"".to_string(),
+            "@.true_str = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_string(),
+            "@.false_str = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_string(),
+            "declare i32 @printf(i8*, ...)".to_string(),
+            "".to_string(),
+            "define i32 @main() {".to_string(),
+        ]
+    }
+}
+\end{lstlisting}
+
+\textbf{Técnicas de Generación de Código Implementadas}:
+\begin{itemize}
+    \item \textbf{Generación de temporales}: Se implementó un contador global para generar identificadores únicos
+    \item \textbf{Manejo de strings}: Se creó un sistema de literales globales con gestión automática de tamaños
+    \item \textbf{Gestión de scoping}: Se mantiene una pila de entornos para el mapeo de variables
+    \item \textbf{Optimización de expresiones}: Se genera código LLVM optimizado para operaciones comunes
+\end{itemize}
+
+La generación de funciones demuestra técnicas avanzadas de compilación:
+
+\begin{lstlisting}[style=rustcode,caption=Generación de funciones LLVM]
+fn visit_function_def(&mut self, def: &FunctionDef) {
+    let mut fn_code = Vec::new();
+    let fn_name = &def.name.name;
+
+    let (ret_type, param_types) = match self.symbol_table.lookup(fn_name) {
+        Some(SymbolInfo::Function { return_type, param_types }) => 
+            (return_type.clone(), param_types.clone()),
+        _ => panic!("Function '{}' not found", fn_name),
+    };
+
+    let params_llvm = param_types.iter().enumerate()
+        .map(|(i, ty)| match ty {
+            Type::Number => format!("i32 %p{i}"),
+            Type::Boolean => format!("i1 %p{i}"),
+            Type::String => format!("i8* %p{i}"),
+            _ => panic!("Parameter type not supported"),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let ret_llvm = match ret_type {
+        Type::Number => "i32",
+        Type::Boolean => "i1", 
+        Type::String => "i8*",
+        _ => panic!("Return type not supported"),
+    };
+
+    fn_code.push(format!("define {} @{}({}) {{", ret_llvm, fn_name, params_llvm));
+
+    // Parameter and scoping management
+    self.env_stack.push(HashMap::new());
+    for (i, param) in def.params.iter().enumerate() {
+        let unique_var = format!("{}_{}", param.name.name, self.env_stack.len());
+        let llvm_type = self.type_to_llvm(&param.signature);
+        fn_code.push(format!("%{unique_var} = alloca {llvm_type}"));
+        fn_code.push(format!("store {llvm_type} %p{i}, {llvm_type}* %{unique_var}"));
+        self.env_stack.last_mut().unwrap()
+            .insert(param.name.name.clone(), format!("%{unique_var}"));
+    }
+
+    // Body generation
+    let old_code = std::mem::replace(&mut self.code, Vec::new());
+    def.body.accept(self);
+    fn_code.extend(self.code.drain(..));
+    fn_code.push(format!("ret {} {}", ret_llvm, self.last_temp));
+    self.env_stack.pop();
+    
+    self.code = old_code;
+    self.functions.extend(fn_code);
+}
+\end{lstlisting}
+
+La generación de estructuras de control demuestra la complejidad del backend:
+
+\begin{lstlisting}[style=llvm,caption=Código LLVM generado para if-else]
+; Evaluacion de condicion
+%t0 = icmp eq i32 %x, 5
+br i1 %t0, label %then1, label %else1
+
+then1:
+  %t1 = add i32 0, 10
+  br label %merge1
+
+else1:
+  %t2 = add i32 0, 20
+  br label %merge1
+
+merge1:
+  %t3 = phi i32 [ %t1, %then1 ], [ %t2, %else1 ]
+  ; continua...
+\end{lstlisting}
+
+\subsubsection{Optimizador y Preprocesador}
+
+\textbf{Propósito}: Se implementó para realizar transformaciones del código fuente y optimizaciones del AST que mejoran la eficiencia y corrección del código generado.
+
+\textbf{Implementación}: Se desarrolló un sistema de preprocesamiento que analiza el código fuente antes del parsing para resolver ambigüedades sintácticas, particularmente en la distinción entre llamadas a función y otros constructos.
+
+\begin{lstlisting}[style=rustcode,caption=Preprocesador de funciones]
+pub fn preprocess_functions(source: &str) -> String {
+    let mut function_names = HashSet::new();
+    let mut output = String::new();
+
+    // 1. Encuentra todas las declaraciones de funcion
+    for line in source.lines() {
+        let trimmed = line.trim_start();
+        if let Some(rest) = trimmed.strip_prefix("function ") {
+            if let Some(name) = rest.split(':').next() {
+                let name = name.trim();
+                if !name.is_empty() {
+                    function_names.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    // 2. Recorre y marca llamadas a funcion
+    let chars: Vec<char> = source.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i].is_alphabetic() || chars[i] == '_' {
+            let start = i;
+            while i < chars.len() && 
+                  (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
+            let ident: String = chars[start..i].iter().collect();
+
+            let mut j = i;
+            let mut spaces = String::new();
+            while j < chars.len() && chars[j].is_whitespace() {
+                spaces.push(chars[j]);
+                j += 1;
+            }
+
+            let is_function_call = j < chars.len() && 
+                                   chars[j] == '(' && 
+                                   function_names.contains(&ident);
+            let prev = output.trim_end();
+            let is_definition = prev.ends_with("function");
+            
+            if is_function_call && !is_definition {
+                output.push('@');
+                output.push_str(&ident);
+            } else {
+                output.push_str(&ident);
+            }
+            output.push_str(&spaces);
+            i = j;
+        } else {
+            output.push(chars[i]);
+            i += 1;
+        }
+    }
+
+    output
+}
+\end{lstlisting}
+
+\textbf{Algoritmos de Optimización}:
+\begin{itemize}
+    \item \textbf{Análisis estático}: Se identifica el conjunto de funciones declaradas mediante análisis de patrones
+    \item \textbf{Transformación de AST}: Se marcan sintácticamente las llamadas a función para desambiguar el parsing
+    \item \textbf{Detección de métodos}: Se implementó lógica para identificar y marcar llamadas a métodos con el sigil \texttt{\$}
+    \item \textbf{Preservación semántica}: Las transformaciones mantienen la semántica original del programa
+\end{itemize}
+
+\subsubsection{Sistema de Manejo de Errores}
+
+\textbf{Propósito}: Se diseñó para proporcionar diagnósticos precisos y útiles que faciliten la depuración y corrección de errores en el código fuente.
+
+\textbf{Implementación}: Se desarrolló un sistema que mapea errores internos del parser a mensajes comprensibles, incluyendo información precisa de localización y sugerencias de corrección.
+
+\begin{lstlisting}[style=rustcode,caption=Sistema de manejo de errores]
+#[derive(Debug)]
+pub struct ParseError {
+    pub message: String,
+    pub line: Option<usize>,
+}
+
+fn map_lalrpop_error(err: LalrpopError<usize, Token, &str>, input: &str) -> ParseError {
+    use lalrpop_util::ParseError::*;
+
+    fn adjusted_line(pos: Position, input: &str) -> usize {
+        let line = pos.start_line(input);
+        if pos.start > 0 {
+            if let Some(prev_char) = input.chars().nth(pos.start - 1) {
+                if prev_char == '\n' {
+                    return line.saturating_sub(1);
+                }
+            }
+        }
+        line
+    }
+
+    match err {
+        InvalidToken { location } => {
+            let pos = Position::new(location, location);
+            ParseError::new("Token invalido", Some(adjusted_line(pos, input)))
+        }
+        UnrecognizedToken { token: (start, _, end), expected } => {
+            let pos = Position::new(start, end);
+            ParseError::new(
+                format!("Token no reconocido, se esperaba uno de: {:?}", expected),
+                Some(adjusted_line(pos, input)),
+            )
+        }
+        UnrecognizedEof { location, expected } => {
+            let pos = Position::new(location, location);
+            ParseError::new(
+                format!("EOF inesperado, se esperaba: {:?}", expected),
+                Some(adjusted_line(pos, input)),
+            )
+        }
+        _ => ParseError::new("Error de parsing", None),
+    }
+}
+\end{lstlisting}
+
+\textbf{Características del Sistema de Errores}:
+\begin{itemize}
+    \item \textbf{Localizacion precisa}: Se calcula el numero de linea exacto donde ocurre cada error
+    \item \textbf{Mensajes contextuales}: Se proporcionan descripciones específicas del problema encontrado
+    \item \textbf{Sugerencias de corrección}: Se incluyen los tokens esperados en errores de parsing
+    \item \textbf{Manejo de casos especiales}: Se ajusta la informacion de linea para casos boundary
+\end{itemize}
+
+\section{Evaluación de Diseño y Arquitectura}
+
+\subsection{Análisis de Patrones de Diseño}
+
+La implementación del compilador HULK demuestra un uso sofisticado y consistente de patrones de diseño establecidos:
+
+\textbf{Patrón Visitor}: Se implementó de manera exhaustiva a lo largo de todo el sistema, proporcionando una separación clara entre la estructura de datos (AST) y las operaciones que se realizan sobre ella. Este patrón permite agregar nuevas funcionalidades (como diferentes tipos de análisis o generadores de código) sin modificar las definiciones del AST.
+
+\textbf{Patrón Builder}: Se empleó en la construcción de nodos del AST, proporcionando métodos constructores que encapsulan la lógica de inicialización y validación.
+
+\textbf{Patrón Strategy}: Se evidencia en el diseño del sistema de visitors, donde diferentes estrategias de procesamiento (verificación semántica, generación LLVM, optimización) se pueden intercambiar dinámicamente.
+
+\subsection{Análisis de Complejidad Algorítmica}
+
+Las diferentes fases del compilador presentan características de complejidad bien definidas:
+
+\begin{itemize}
+    \item \textbf{Análisis Sintáctico}: O(n) donde n es el tamaño del código fuente, gracias al uso de LALRPOP que genera parsers LR(1) eficientes
+    \item \textbf{Análisis Semántico}: O(n·m) donde n es el número de nodos del AST y m es la profundidad máxima de scoping
+    \item \textbf{Generación de Código}: O(n) donde n es el número de nodos del AST, con factor constante bajo
+    \item \textbf{Preprocesamiento}: O(n·k) donde n es el tamaño del código fuente y k es el número de funciones declaradas
+\end{itemize}
+
+\subsection{Evaluación de Extensibilidad}
+
+La arquitectura implementada facilita significativamente futuras extensiones:
+
+\textbf{Nuevos Tipos de Nodos AST}: El patrón Visitor permite agregar nuevos tipos de expresiones simplemente implementando los métodos correspondientes en cada visitor existente.
+
+\textbf{Nuevas Fases de Análisis}: Se pueden implementar nuevos visitors sin modificar el código existente, siguiendo el principio abierto/cerrado.
+
+\textbf{Diferentes Backends}: El diseño modular permite reemplazar el generador LLVM con otros backends (JavaScript, C, etc.) implementando la interfaz Visitor.
+
+\section{Conclusiones}
+
+\subsection{Cumplimiento de Objetivos}
+
+El desarrollo del compilador HULK logró satisfacer completamente los objetivos técnicos establecidos:
+
+\textbf{Análisis Sintáctico Robusto}: Se implementó un parser completo basado en LALRPOP que procesa correctamente toda la gramática del lenguaje HULK, incluyendo estructuras complejas como funciones recursivas, expresiones condicionales anidadas y sistemas de tipos.
+
+\textbf{Verificación Semántica Exhaustiva}: Se desarrolló un sistema de análisis estático que detecta errores de tipos, variables no declaradas, funciones inexistentes y problemas de scoping, proporcionando diagnósticos precisos con información de localización.
+
+\textbf{Generación de Código Funcional}: El backend LLVM produce código intermedio correcto y eficiente que se compila exitosamente a ejecutables nativos mediante Clang.
+
+\textbf{Arquitectura Extensible}: El diseño modular basado en el patrón Visitor facilita la adición de nuevas funcionalidades sin modificar componentes existentes.
+
+\subsection{Calidad del Código Implementado}
+
+El código desarrollado demuestra adherencia a principios de ingeniería de software de alto nivel:
+
+\textbf{Manejo de Errores Robusto}: Se implementó un sistema exhaustivo de manejo de errores que utiliza los tipos \texttt{Result} de Rust de manera idiomática, proporcionando recuperación graceful ante condiciones excepcionales.
+
+\textbf{Separación de Responsabilidades}: Cada módulo tiene una función específica y bien definida, manteniendo interfaces claras y acoplamiento mínimo entre componentes.
+
+\textbf{Reutilización de Código}: El patrón Visitor permite reutilizar la lógica de recorrido del AST en múltiples contextos, reduciendo duplicación y manteniendo consistencia.
+
+\textbf{Documentación y Legibilidad}: El código incluye comentarios explicativos, nombres de variables descriptivos y estructura lógica clara que facilita el mantenimiento.
+
+\subsection{Decisiones Técnicas Destacables}
+
+\textbf{Elección de LALRPOP}: La decisión de utilizar LALRPOP como generador de parsers resultó acertada, proporcionando un análisis sintáctico eficiente y libre de ambigüedades con capacidades avanzadas de manejo de errores.
+
+\textbf{Sistema de Preprocesamiento}: La implementación de una fase de preprocesamiento que marca llamadas a función demuestra creatividad en la resolución de ambigüedades sintácticas.
+
+\textbf{Arquitectura de Visitors}: El uso extensivo del patrón Visitor proporciona flexibilidad excepcional para extensiones futuras mientras mantiene el código base estable.
+
+\textbf{Integración con LLVM}: La elección de LLVM como backend proporciona optimizaciones avanzadas y portabilidad multiplataforma sin sacrificar rendimiento.
+
+El compilador HULK representa una implementación técnicamente sólida que demuestra comprensión profunda de los principios de compilación y ingeniería de software moderna.
+
+\end{document}
